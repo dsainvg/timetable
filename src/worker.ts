@@ -193,11 +193,29 @@ export default {
     const path = url.pathname;
 
     try {
-      if (env.DB && path.startsWith('/api/')) {
+      // ─── 1. ALL NON-API ROUTES (/tt, /interns, /reminders, /) ──
+      if (!path.startsWith('/api/')) {
+        if (env.ASSETS) {
+          const assetRes = await env.ASSETS.fetch(request);
+          if (assetRes.status !== 404) {
+            return assetRes;
+          }
+          // Fallback to index.html for SPA routes
+          const indexUrl = new URL(request.url);
+          indexUrl.pathname = '/index.html';
+          return await env.ASSETS.fetch(new Request(indexUrl.toString(), {
+            method: 'GET',
+            headers: request.headers,
+          }));
+        }
+        return json({ error: 'Not Found' }, 404);
+      }
+
+      // ─── 2. API ROUTES (/api/*) ──────────────────────────────────
+      if (env.DB) {
         await ensureTables(env.DB);
       }
 
-      // ─── 1. VERIFY AUTH ───────────────────────────────────────
       if (path === '/api/verify-auth' && request.method === 'POST') {
         const body = (await request.json()) as { password?: string };
         const clientPass = (body.password || '').trim();
@@ -215,7 +233,6 @@ export default {
         }
       }
 
-      // ─── 2. D1 REMINDERS ENDPOINTS ─────────────────────────────
       if (path === '/api/reminders' && request.method === 'GET') {
         if (env.DB) {
           try {
@@ -270,7 +287,6 @@ export default {
         return json({ success: true });
       }
 
-      // DELETE /api/reminders/:id
       if (path.startsWith('/api/reminders/') && !path.endsWith('/toggle') && request.method === 'DELETE') {
         const parts = path.split('/');
         const id = parts[parts.length - 1];
@@ -286,7 +302,6 @@ export default {
         return json({ success: true, deleted: id });
       }
 
-      // PUT /api/reminders/:id/toggle
       if (path.startsWith('/api/reminders/') && path.endsWith('/toggle') && request.method === 'PUT') {
         const parts = path.split('/');
         const id = parts[parts.length - 2];
@@ -305,7 +320,6 @@ export default {
         return json({ success: true, toggled: id });
       }
 
-      // ─── 3. D1 ROOM PREFERENCES ENDPOINTS ─────────────────────
       if (path === '/api/rooms' && request.method === 'GET') {
         if (env.DB) {
           try {
@@ -340,7 +354,6 @@ export default {
         return json({ success: true });
       }
 
-      // ─── 4. SMTP EMAIL NOTIFICATION API ───────────────────────
       if (path === '/api/send-email' && request.method === 'POST') {
         const body = (await request.json()) as any;
         const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
@@ -388,31 +401,14 @@ export default {
         });
       }
 
-      // If an unknown /api/* endpoint was requested, return 404 JSON
-      if (path.startsWith('/api/')) {
-        return json({ error: 'API Endpoint Not Found' }, 404);
-      }
-
-      // ─── 5. STATIC ASSETS & SPA ROUTING FALLBACK (/tt, /interns, etc.) ──
-      if (env.ASSETS) {
-        const assetResponse = await env.ASSETS.fetch(request);
-        if (assetResponse.status !== 404) {
-          return assetResponse;
-        }
-
-        // SPA Fallback: If asset 404s (e.g. client route like /tt), serve index.html
-        const indexRequest = new Request(new URL('/index.html', request.url), request);
-        return await env.ASSETS.fetch(indexRequest);
-      }
-
-      return json({ error: 'Not Found' }, 404);
+      return json({ error: 'API Endpoint Not Found' }, 404);
     } catch (err: any) {
       console.error('Worker error:', err);
       return json({ error: err.message || 'Internal Server Error' }, 500);
     }
   },
 
-  // ─── 6. CRON TRIGGER HANDLER ──────────────────────────────────────
+  // ─── CRON TRIGGER HANDLER ──────────────────────────────────────
   async scheduled(event: any, env: Env, _ctx: any): Promise<void> {
     const cron = event.cron || '';
     const now = new Date();
