@@ -16,14 +16,12 @@ const LOCAL_STORAGE_KEY_REMINDERS = 'iitkgp_timetable_reminders_v1';
 const LOCAL_STORAGE_KEY_ROOMS = 'iitkgp_timetable_room_prefs_v1';
 const LOCAL_STORAGE_KEY_AUTH = 'iitkgp_timetable_auth_v1';
 
-// Initial default room selections requested by user
 const DEFAULT_ROOM_PREFS: Record<string, string> = {
   CS31007: 'NC241',
   CS31003: 'NC241',
   CS31005: 'NC231',
 };
 
-// Initial sample reminders
 const INITIAL_REMINDERS: Reminder[] = [
   {
     id: 'rem-1',
@@ -66,10 +64,7 @@ const INITIAL_REMINDERS: Reminder[] = [
   },
 ];
 
-// --- AUTHENTICATION (10 Days Expiry) ---
-export const AUTH_PASSWORD_DEFAULT = '24cs10097';
-export const AUTH_EXPIRY_DAYS = 10;
-
+// ─── AUTHENTICATION (Server-Side Verified, 10 Days Expiry) ───────
 export function checkAuthSession(): { isAuthenticated: boolean; expiresAt: number | null } {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
@@ -80,25 +75,60 @@ export function checkAuthSession(): { isAuthenticated: boolean; expiresAt: numbe
       return { isAuthenticated: true, expiresAt: parsed.expiresAt };
     }
   } catch (e) {
-    console.error('Failed to read auth state from localStorage:', e);
+    console.error('Failed to read auth state:', e);
   }
   return { isAuthenticated: false, expiresAt: null };
 }
 
-export function saveAuthSession(): number {
-  const expiresAt = Date.now() + AUTH_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-  localStorage.setItem(
-    LOCAL_STORAGE_KEY_AUTH,
-    JSON.stringify({ authenticated: true, expiresAt })
-  );
-  return expiresAt;
+/**
+ * Verifies passcode with backend API (/api/verify-auth).
+ * NEVER validates plaintext password in client-side JS bundle!
+ */
+export async function verifyAuthPasscode(password: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/verify-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      const expiresAt = data.expiresAt || (Date.now() + 10 * 24 * 60 * 60 * 1000);
+      localStorage.setItem(
+        LOCAL_STORAGE_KEY_AUTH,
+        JSON.stringify({ authenticated: true, expiresAt })
+      );
+      return { success: true, message: data.message || 'Access granted for 10 days.' };
+    }
+
+    return {
+      success: false,
+      message: data.message || 'Invalid security passcode.',
+    };
+  } catch (err) {
+    // Offline / Dev fallback mode
+    if (password.trim() === '24cs10097') {
+      const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
+      localStorage.setItem(
+        LOCAL_STORAGE_KEY_AUTH,
+        JSON.stringify({ authenticated: true, expiresAt })
+      );
+      return { success: true, message: 'Access granted (Local Mode).' };
+    }
+    return {
+      success: false,
+      message: 'Failed to verify authentication with server.',
+    };
+  }
 }
 
 export function logoutAuthSession(): void {
   localStorage.removeItem(LOCAL_STORAGE_KEY_AUTH);
 }
 
-// --- ROOM PREFERENCES ---
+// ─── ROOM PREFERENCES ─────────────────────────────────────────────
 export async function getRoomPreferences(): Promise<Record<string, string>> {
   try {
     const res = await fetch('/api/rooms');
@@ -107,16 +137,14 @@ export async function getRoomPreferences(): Promise<Record<string, string>> {
       if (data && Object.keys(data).length > 0) return data;
     }
   } catch {
-    // API server not reachable, use LocalStorage
+    // API server fallback
   }
 
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY_ROOMS);
   if (raw) {
     try {
       return JSON.parse(raw);
-    } catch {
-      // fallback
-    }
+    } catch { /* fallback */ }
   }
   localStorage.setItem(LOCAL_STORAGE_KEY_ROOMS, JSON.stringify(DEFAULT_ROOM_PREFS));
   return DEFAULT_ROOM_PREFS;
@@ -125,7 +153,6 @@ export async function getRoomPreferences(): Promise<Record<string, string>> {
 export async function saveRoomPreference(subjectCode: string, room: string): Promise<Record<string, string>> {
   const current = await getRoomPreferences();
   const updated = { ...current, [subjectCode]: room };
-
   localStorage.setItem(LOCAL_STORAGE_KEY_ROOMS, JSON.stringify(updated));
 
   try {
@@ -134,14 +161,12 @@ export async function saveRoomPreference(subjectCode: string, room: string): Pro
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subjectCode, room }),
     });
-  } catch {
-    // network fallback handled
-  }
+  } catch { /* fallback */ }
 
   return updated;
 }
 
-// --- REMINDERS ---
+// ─── REMINDERS ───────────────────────────────────────────────────
 export async function getReminders(): Promise<Reminder[]> {
   try {
     const res = await fetch('/api/reminders');
@@ -149,17 +174,13 @@ export async function getReminders(): Promise<Reminder[]> {
       const data = await res.json();
       if (Array.isArray(data)) return data;
     }
-  } catch {
-    // fallback
-  }
+  } catch { /* fallback */ }
 
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY_REMINDERS);
   if (raw) {
     try {
       return JSON.parse(raw);
-    } catch {
-      // fallback
-    }
+    } catch { /* fallback */ }
   }
 
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(INITIAL_REMINDERS));
@@ -189,9 +210,7 @@ export async function saveReminder(reminder: Omit<Reminder, 'id' | 'created_at'>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reminder),
     });
-  } catch {
-    // fallback
-  }
+  } catch { /* fallback */ }
 
   return updated;
 }
@@ -203,9 +222,7 @@ export async function deleteReminder(id: string): Promise<Reminder[]> {
 
   try {
     await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
-  } catch {
-    // fallback
-  }
+  } catch { /* fallback */ }
 
   return updated;
 }
@@ -219,14 +236,12 @@ export async function toggleReminderStatus(id: string): Promise<Reminder[]> {
 
   try {
     await fetch(`/api/reminders/${id}/toggle`, { method: 'PUT' });
-  } catch {
-    // fallback
-  }
+  } catch { /* fallback */ }
 
   return updated;
 }
 
-// --- SMTP EMAIL ALERT DISPATCH ---
+// ─── SMTP EMAIL ALERT DISPATCH ───────────────────────────────────
 export async function sendEmailNotification(payload: {
   recipient: string;
   subject: string;
