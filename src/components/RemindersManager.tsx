@@ -118,7 +118,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
               Tasks & Submissions Portal
             </h2>
             <p style={{ fontSize:11, color:'#475569', marginTop:4 }}>
-              Cloudflare D1 Synced • SMTP Alerts to <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>sai@dsainvg.me</strong>
+              Synced • Email Alerts to <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>sai@dsainvg.me</strong>
             </p>
           </div>
 
@@ -429,7 +429,28 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                 </div>
                 <div>
                   <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Due Time</label>
-                  <input required type="time" value={formDueTime} onChange={e => setFormDueTime(e.target.value)} style={{ ...inputStyle, colorScheme:'dark' }} />
+                  <select value={formDueTime} onChange={e => setFormDueTime(e.target.value)} style={{ ...inputStyle, cursor:'pointer' }}>
+                    {[
+                      { v:'08:00', l:'08:00 AM' },
+                      { v:'09:00', l:'09:00 AM' },
+                      { v:'10:00', l:'10:00 AM' },
+                      { v:'11:00', l:'11:00 AM' },
+                      { v:'12:00', l:'12:00 PM' },
+                      { v:'13:00', l:'01:00 PM' },
+                      { v:'14:00', l:'02:00 PM' },
+                      { v:'15:00', l:'03:00 PM' },
+                      { v:'16:00', l:'04:00 PM' },
+                      { v:'17:00', l:'05:00 PM' },
+                      { v:'18:00', l:'06:00 PM' },
+                      { v:'19:00', l:'07:00 PM' },
+                      { v:'20:00', l:'08:00 PM' },
+                      { v:'21:00', l:'09:00 PM' },
+                      { v:'22:00', l:'10:00 PM' },
+                      { v:'23:59', l:'11:59 PM (End of Day)' },
+                    ].map(t => (
+                      <option key={t.v} value={t.v}>{t.l}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -500,7 +521,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   transition:'all 0.15s',
                 }}
               >
-                <Plus size={16} /> Save to Cloudflare D1
+                <Plus size={16} /> Save Reminder
               </button>
             </form>
           </div>

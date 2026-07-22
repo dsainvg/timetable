@@ -227,7 +227,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onAuthenticated })
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 24, fontSize: 10, color: '#334155', fontWeight: 600 }}>
-          IIT Kharagpur Autumn 2026-2027 · Cloudflare D1 & Worker Secured
+          IIT Kharagpur Autumn 2026-2027 · Secured Portal
         </div>
       </div>
     </div>

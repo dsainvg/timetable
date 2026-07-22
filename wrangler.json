@@ -6,7 +6,11 @@
     "directory": "./dist"
   },
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": [
+      "0 * * * *",
+      "0 7 * * *",
+      "0 8 * * 0"
+    ]
   },
   "d1_databases": [
     {

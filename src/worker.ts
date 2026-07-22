@@ -22,7 +22,7 @@ function json(data: any, status = 200) {
   });
 }
 
-// Auto-initialize D1 Database Tables if they don't exist yet
+// Auto-initialize D1 Database Tables
 async function ensureTables(db: any) {
   if (!db) return;
   try {
@@ -64,11 +64,130 @@ async function ensureTables(db: any) {
   }
 }
 
-// Send email helper
+// Email Dispatcher Helper
 async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
   const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
   console.log(`[EMAIL DISPATCH] To: ${recipient} | Subject: ${payload.subject}`);
   return { success: true, recipient };
+}
+
+// ─── DAILY MORNING SUMMARY (7:00 AM) ──────────────────────────────────
+async function sendDailyMorningSummary(env: Env, recipient: string) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const summaryKey = `daily-summary-${todayStr}`;
+
+  // Check deduplication log
+  const check = await env.DB.prepare(
+    'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
+  ).bind(summaryKey, recipient).all();
+
+  if (check.results && check.results.length > 0) {
+    console.log(`[DAILY CRON] Summary already sent for ${todayStr}. Skipping.`);
+    return;
+  }
+
+  // Get tasks due today
+  const { results: dueTasks } = await env.DB.prepare(
+    "SELECT * FROM reminders WHERE due_date = ? AND status = 'pending'"
+  ).bind(todayStr).all();
+
+  const taskList = (dueTasks || []) as any[];
+  const taskText = taskList.length > 0
+    ? taskList.map(t => `• [${t.subject_code}] ${t.title} (${t.due_time || '23:59'})`).join('\n')
+    : 'No pending tasks due today.';
+
+  const subject = `🌅 [Daily Morning Summary] ${todayStr} - IIT Kharagpur`;
+  const text = `Good Morning!\n\nHere is your daily summary for ${todayStr}:\n\n📋 Tasks Due Today:\n${taskText}\n\nHave a productive day!`;
+
+  await dispatchEmail(env, { recipient, subject, text });
+
+  // Log in D1
+  await env.DB.prepare(
+    'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
+  ).bind('log-' + Date.now(), summaryKey, recipient).run();
+}
+
+// ─── SUNDAY WEEKLY SUMMARY (8:00 AM SUNDAY) ───────────────────────────
+async function sendSundayWeeklySummary(env: Env, recipient: string) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const summaryKey = `sunday-weekly-summary-${todayStr}`;
+
+  // Check deduplication log
+  const check = await env.DB.prepare(
+    'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
+  ).bind(summaryKey, recipient).all();
+
+  if (check.results && check.results.length > 0) {
+    console.log(`[SUNDAY CRON] Weekly summary already sent for ${todayStr}. Skipping.`);
+    return;
+  }
+
+  // Done Stuff: completed reminders
+  const { results: doneItems } = await env.DB.prepare(
+    "SELECT * FROM reminders WHERE status = 'completed'"
+  ).all();
+
+  // Need To Do Stuff: pending reminders
+  const { results: pendingItems } = await env.DB.prepare(
+    "SELECT * FROM reminders WHERE status = 'pending' ORDER BY due_date ASC"
+  ).all();
+
+  const doneList = (doneItems || []) as any[];
+  const pendingList = (pendingItems || []) as any[];
+
+  const doneText = doneList.length > 0
+    ? doneList.map(t => `✓ [${t.subject_code}] ${t.title}`).join('\n')
+    : 'No completed tasks recorded this week.';
+
+  const pendingText = pendingList.length > 0
+    ? pendingList.map(t => `⏳ [${t.subject_code}] ${t.title} (Due: ${t.due_date} ${t.due_time})`).join('\n')
+    : 'All caught up! No pending tasks.';
+
+  const subject = `📊 [Sunday Weekly Summary] Done & Upcoming Tasks - IIT Kharagpur`;
+  const text = `Happy Sunday!\n\nHere is your Weekly Summary:\n\n✅ DONE STUFF (Completed Tasks):\n${doneText}\n\n📌 NEED TO DO STUFF (Upcoming Tasks):\n${pendingText}\n\nGood luck for the upcoming week!`;
+
+  await dispatchEmail(env, { recipient, subject, text });
+
+  // Log in D1
+  await env.DB.prepare(
+    'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
+  ).bind('log-' + Date.now(), summaryKey, recipient).run();
+}
+
+// ─── HOURLY REMINDERS CHECK ──────────────────────────────────────────
+async function processHourlyReminders(env: Env, recipient: string) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM reminders
+    WHERE status = 'pending' AND send_email = 1
+  `).all();
+
+  if (!results || results.length === 0) return;
+
+  let sentCount = 0;
+  for (const rem of results as any[]) {
+    const check = await env.DB.prepare(`
+      SELECT * FROM sent_email_logs
+      WHERE reminder_id = ? AND recipient = ?
+    `).bind(rem.id, recipient).all();
+
+    if (check.results && check.results.length > 0) continue;
+
+    const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
+    const text = `Reminder Notification:\n\nTask: ${rem.title}\nSubject: ${rem.subject_code}\nType: ${rem.type}\nDue: ${rem.due_date} at ${rem.due_time}\nPriority: ${rem.priority.toUpperCase()}\nDetails: ${rem.description || 'N/A'}`;
+
+    await dispatchEmail(env, { recipient, subject, text });
+
+    const logId = 'cron-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+    await env.DB.prepare(`
+      INSERT INTO sent_email_logs (id, reminder_id, recipient)
+      VALUES (?, ?, ?)
+      ON CONFLICT(reminder_id, recipient) DO NOTHING
+    `).bind(logId, rem.id, recipient).run();
+
+    sentCount++;
+  }
+
+  console.log(`[HOURLY CRON] Sent ${sentCount} new reminder emails to ${recipient}.`);
 }
 
 export default {
@@ -81,12 +200,11 @@ export default {
     const path = url.pathname;
 
     try {
-      // Ensure D1 Tables exist on every API request
       if (env.DB) {
         await ensureTables(env.DB);
       }
 
-      // ─── 1. VERIFY AUTH (Server-Side Passcode Verification) ──
+      // ─── 1. VERIFY AUTH ───────────────────────────────────────
       if (path === '/api/verify-auth' && request.method === 'POST') {
         const body = (await request.json()) as { password?: string };
         const clientPass = (body.password || '').trim();
@@ -166,9 +284,7 @@ export default {
 
         if (env.DB && id) {
           try {
-            // Delete associated sent email logs first
             await env.DB.prepare('DELETE FROM sent_email_logs WHERE reminder_id = ?').bind(id).run().catch(() => {});
-            // Delete reminder record
             await env.DB.prepare('DELETE FROM reminders WHERE id = ?').bind(id).run();
           } catch (e: any) {
             console.error(`DELETE /api/reminders/${id} D1 error:`, e);
@@ -236,7 +352,6 @@ export default {
         const body = (await request.json()) as any;
         const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
 
-        // Deduplication check: if reminder_id provided, check if already sent to this recipient
         if (body.reminder_id && env.DB) {
           try {
             const { results } = await env.DB.prepare(
@@ -246,7 +361,7 @@ export default {
             if (results && results.length > 0) {
               return json({
                 success: true,
-                message: `Email already sent previously for reminder ${body.reminder_id} to ${targetEmail} (D1 Deduplication active).`,
+                message: `Email already sent previously to ${targetEmail}.`,
                 skipped: true,
               });
             }
@@ -257,11 +372,10 @@ export default {
 
         await dispatchEmail(env, {
           recipient: targetEmail,
-          subject: body.subject || '⏰ IIT KGP Timetable Alert',
+          subject: body.subject || '⏰ IIT KGP Alert',
           text: body.text || 'You have an upcoming reminder.',
         });
 
-        // Log sent status into D1 DB to prevent duplicate alerts
         if (body.reminder_id && env.DB) {
           try {
             const logId = 'log-' + Date.now();
@@ -277,7 +391,7 @@ export default {
 
         return json({
           success: true,
-          message: `Email notification successfully queued/delivered to ${targetEmail}`,
+          message: `Email notification successfully sent to ${targetEmail}`,
         });
       }
 
@@ -293,63 +407,38 @@ export default {
     }
   },
 
-  // ─── 6. HOURLY CRON TRIGGER HANDLER (Every Hour: "0 * * * *") ──
-  async scheduled(_event: any, env: Env, _ctx: any): Promise<void> {
-    console.log(`[HOURLY CRON] Triggered at ${new Date().toISOString()}`);
+  // ─── 6. CRON TRIGGER HANDLER ──────────────────────────────────────
+  async scheduled(event: any, env: Env, _ctx: any): Promise<void> {
+    const cron = event.cron || '';
+    const now = new Date();
     const recipient = env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
 
+    console.log(`[CRON TRIGGER] ${cron} fired at ${now.toISOString()}`);
+
     if (!env.DB) {
-      console.log('[HOURLY CRON] DB binding not available. Skipping D1 reminder check.');
+      console.log('[CRON] DB binding not available. Skipping D1 checks.');
       return;
     }
 
     try {
       await ensureTables(env.DB);
 
-      // Query pending reminders where send_email = 1
-      const { results } = await env.DB.prepare(`
-        SELECT * FROM reminders
-        WHERE status = 'pending' AND send_email = 1
-      `).all();
-
-      if (!results || results.length === 0) {
-        console.log('[HOURLY CRON] No pending reminders found.');
+      // 1. SUNDAY WEEKLY SUMMARY CRON ("0 8 * * 0" or if Sunday 8 AM)
+      if (cron === '0 8 * * 0' || (now.getDay() === 0 && now.getHours() === 8)) {
+        await sendSundayWeeklySummary(env, recipient);
         return;
       }
 
-      let sentCount = 0;
-      for (const rem of results as any[]) {
-        // Deduplication check in D1: check if email was already logged for this reminder and recipient
-        const check = await env.DB.prepare(`
-          SELECT * FROM sent_email_logs
-          WHERE reminder_id = ? AND recipient = ?
-        `).bind(rem.id, recipient).all();
-
-        if (check.results && check.results.length > 0) {
-          console.log(`[HOURLY CRON] Duplicate prevented for reminder ${rem.id} (${rem.title}) -> already sent to ${recipient}.`);
-          continue;
-        }
-
-        // Dispatch email notification to sai@dsainvg.me
-        const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
-        const text = `Hourly Reminder Notification:\n\nTask: ${rem.title}\nSubject: ${rem.subject_code}\nType: ${rem.type}\nDue: ${rem.due_date} at ${rem.due_time}\nPriority: ${rem.priority.toUpperCase()}\nDetails: ${rem.description || 'N/A'}`;
-
-        await dispatchEmail(env, { recipient, subject, text });
-
-        // Record log in D1 to guarantee NO duplicate emails
-        const logId = 'cron-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
-        await env.DB.prepare(`
-          INSERT INTO sent_email_logs (id, reminder_id, recipient)
-          VALUES (?, ?, ?)
-          ON CONFLICT(reminder_id, recipient) DO NOTHING
-        `).bind(logId, rem.id, recipient).run();
-
-        sentCount++;
+      // 2. DAILY MORNING SUMMARY CRON ("0 7 * * *" or if 7 AM)
+      if (cron === '0 7 * * *' || now.getHours() === 7) {
+        await sendDailyMorningSummary(env, recipient);
+        return;
       }
 
-      console.log(`[HOURLY CRON] Successfully processed ${results.length} pending reminders. Sent ${sentCount} new emails to ${recipient}.`);
+      // 3. HOURLY TASK REMINDERS CHECK ("0 * * * *")
+      await processHourlyReminders(env, recipient);
     } catch (err) {
-      console.error('[HOURLY CRON Error]:', err);
+      console.error('[CRON Handler Error]:', err);
     }
   },
 };

@@ -86,7 +86,7 @@ export const App: React.FC = () => {
   const handleSaveReminder = async (remData: Omit<Reminder, 'id' | 'created_at'> & { id?: string }) => {
     const updatedList = await saveReminder(remData);
     setReminders(updatedList);
-    showToast('Reminder saved to Cloudflare D1!');
+    showToast('Reminder saved!');
   };
 
   const handleDeleteReminder = async (id: string) => {
@@ -226,7 +226,7 @@ export const App: React.FC = () => {
               color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6,
             }}>
               <Database size={13} />
-              <span className="desktop-only">D1 Synced</span>
+              <span className="desktop-only">Synced</span>
             </div>
 
             {isAuthenticated && (
