@@ -22,18 +22,46 @@ function json(data: any, status = 200) {
   });
 }
 
-// Ensure sent_email_logs table exists for deduplication
-async function ensureLogsTable(db: any) {
+// Auto-initialize D1 Database Tables if they don't exist yet
+async function ensureTables(db: any) {
   if (!db) return;
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS sent_email_logs (
-      id TEXT PRIMARY KEY,
-      reminder_id TEXT NOT NULL,
-      recipient TEXT NOT NULL,
-      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(reminder_id, recipient)
-    )
-  `).run();
+  try {
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS reminders (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          subject_code TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'assignment',
+          due_date TEXT NOT NULL,
+          due_time TEXT DEFAULT '23:59',
+          priority TEXT NOT NULL DEFAULT 'medium',
+          status TEXT NOT NULL DEFAULT 'pending',
+          send_email INTEGER DEFAULT 1,
+          description TEXT DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS room_preferences (
+          subject_code TEXT PRIMARY KEY,
+          selected_room TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS sent_email_logs (
+          id TEXT PRIMARY KEY,
+          reminder_id TEXT NOT NULL,
+          recipient TEXT NOT NULL,
+          sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(reminder_id, recipient)
+        )
+      `),
+    ]);
+  } catch (err) {
+    console.error('D1 Table Auto-Init Warning:', err);
+  }
 }
 
 // Send email helper
@@ -53,6 +81,11 @@ export default {
     const path = url.pathname;
 
     try {
+      // Ensure D1 Tables exist on every API request
+      if (env.DB) {
+        await ensureTables(env.DB);
+      }
+
       // ─── 1. VERIFY AUTH (Server-Side Passcode Verification) ──
       if (path === '/api/verify-auth' && request.method === 'POST') {
         const body = (await request.json()) as { password?: string };
@@ -74,10 +107,14 @@ export default {
       // ─── 2. D1 REMINDERS ENDPOINTS ─────────────────────────────
       if (path === '/api/reminders' && request.method === 'GET') {
         if (env.DB) {
-          const { results } = await env.DB.prepare(
-            'SELECT * FROM reminders ORDER BY created_at DESC'
-          ).all();
-          return json(results || []);
+          try {
+            const { results } = await env.DB.prepare(
+              'SELECT * FROM reminders ORDER BY created_at DESC'
+            ).all();
+            return json(results || []);
+          } catch (e) {
+            console.error('GET /api/reminders D1 error:', e);
+          }
         }
         return json([]);
       }
@@ -85,69 +122,95 @@ export default {
       if (path === '/api/reminders' && request.method === 'POST') {
         const body = (await request.json()) as any;
         if (env.DB) {
-          const id = body.id || 'rem-' + Date.now();
-          await env.DB.prepare(`
-            INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              title=excluded.title,
-              subject_code=excluded.subject_code,
-              type=excluded.type,
-              due_date=excluded.due_date,
-              due_time=excluded.due_time,
-              priority=excluded.priority,
-              status=excluded.status,
-              send_email=excluded.send_email,
-              description=excluded.description
-          `).bind(
-            id,
-            body.title,
-            body.subject_code,
-            body.type || 'assignment',
-            body.due_date,
-            body.due_time,
-            body.priority || 'high',
-            body.status || 'pending',
-            body.send_email ? 1 : 0,
-            body.description || ''
-          ).run();
+          try {
+            const id = body.id || 'rem-' + Date.now();
+            await env.DB.prepare(`
+              INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                title=excluded.title,
+                subject_code=excluded.subject_code,
+                type=excluded.type,
+                due_date=excluded.due_date,
+                due_time=excluded.due_time,
+                priority=excluded.priority,
+                status=excluded.status,
+                send_email=excluded.send_email,
+                description=excluded.description
+            `).bind(
+              id,
+              body.title || 'Untitled Reminder',
+              body.subject_code || 'GENERAL',
+              body.type || 'assignment',
+              body.due_date || new Date().toISOString().split('T')[0],
+              body.due_time || '23:59',
+              body.priority || 'high',
+              body.status || 'pending',
+              body.send_email ? 1 : 0,
+              body.description || ''
+            ).run();
 
-          return json({ success: true, id });
+            return json({ success: true, id });
+          } catch (e: any) {
+            console.error('POST /api/reminders D1 error:', e);
+            return json({ success: false, message: e.message }, 500);
+          }
         }
         return json({ success: true });
       }
 
-      if (path.startsWith('/api/reminders/') && request.method === 'DELETE') {
-        const id = path.replace('/api/reminders/', '');
+      // DELETE /api/reminders/:id
+      if (path.startsWith('/api/reminders/') && !path.endsWith('/toggle') && request.method === 'DELETE') {
+        const parts = path.split('/');
+        const id = parts[parts.length - 1];
+
         if (env.DB && id) {
-          await env.DB.prepare('DELETE FROM reminders WHERE id = ?').bind(id).run();
+          try {
+            // Delete associated sent email logs first
+            await env.DB.prepare('DELETE FROM sent_email_logs WHERE reminder_id = ?').bind(id).run().catch(() => {});
+            // Delete reminder record
+            await env.DB.prepare('DELETE FROM reminders WHERE id = ?').bind(id).run();
+          } catch (e: any) {
+            console.error(`DELETE /api/reminders/${id} D1 error:`, e);
+          }
         }
-        return json({ success: true });
+        return json({ success: true, deleted: id });
       }
 
+      // PUT /api/reminders/:id/toggle
       if (path.startsWith('/api/reminders/') && path.endsWith('/toggle') && request.method === 'PUT') {
-        const id = path.replace('/api/reminders/', '').replace('/toggle', '');
+        const parts = path.split('/');
+        const id = parts[parts.length - 2];
+
         if (env.DB && id) {
-          await env.DB.prepare(`
-            UPDATE reminders
-            SET status = CASE WHEN status = 'completed' THEN 'pending' ELSE 'completed' END
-            WHERE id = ?
-          `).bind(id).run();
+          try {
+            await env.DB.prepare(`
+              UPDATE reminders
+              SET status = CASE WHEN status = 'completed' THEN 'pending' ELSE 'completed' END
+              WHERE id = ?
+            `).bind(id).run();
+          } catch (e: any) {
+            console.error(`PUT /api/reminders/${id}/toggle D1 error:`, e);
+          }
         }
-        return json({ success: true });
+        return json({ success: true, toggled: id });
       }
 
       // ─── 3. D1 ROOM PREFERENCES ENDPOINTS ─────────────────────
       if (path === '/api/rooms' && request.method === 'GET') {
         if (env.DB) {
-          const { results } = await env.DB.prepare('SELECT * FROM room_preferences').all();
-          const prefs: Record<string, string> = {};
-          if (Array.isArray(results)) {
-            for (const r of results as any[]) {
-              prefs[r.subject_code] = r.selected_room || r.room;
+          try {
+            const { results } = await env.DB.prepare('SELECT * FROM room_preferences').all();
+            const prefs: Record<string, string> = {};
+            if (Array.isArray(results)) {
+              for (const r of results as any[]) {
+                prefs[r.subject_code] = r.selected_room || r.room;
+              }
             }
+            return json(prefs);
+          } catch (e) {
+            console.error('GET /api/rooms D1 error:', e);
           }
-          return json(prefs);
         }
         return json({});
       }
@@ -155,11 +218,15 @@ export default {
       if (path === '/api/rooms' && request.method === 'POST') {
         const body = (await request.json()) as any;
         if (env.DB && body.subjectCode && body.room) {
-          await env.DB.prepare(`
-            INSERT INTO room_preferences (subject_code, selected_room)
-            VALUES (?, ?)
-            ON CONFLICT(subject_code) DO UPDATE SET selected_room=excluded.selected_room
-          `).bind(body.subjectCode, body.room).run();
+          try {
+            await env.DB.prepare(`
+              INSERT INTO room_preferences (subject_code, selected_room)
+              VALUES (?, ?)
+              ON CONFLICT(subject_code) DO UPDATE SET selected_room=excluded.selected_room
+            `).bind(body.subjectCode, body.room).run();
+          } catch (e) {
+            console.error('POST /api/rooms D1 error:', e);
+          }
         }
         return json({ success: true });
       }
@@ -169,20 +236,22 @@ export default {
         const body = (await request.json()) as any;
         const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
 
-        await ensureLogsTable(env.DB);
-
         // Deduplication check: if reminder_id provided, check if already sent to this recipient
         if (body.reminder_id && env.DB) {
-          const { results } = await env.DB.prepare(
-            'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
-          ).bind(body.reminder_id, targetEmail).all();
+          try {
+            const { results } = await env.DB.prepare(
+              'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
+            ).bind(body.reminder_id, targetEmail).all();
 
-          if (results && results.length > 0) {
-            return json({
-              success: true,
-              message: `Email already sent previously for reminder ${body.reminder_id} to ${targetEmail} (D1 Deduplication active).`,
-              skipped: true,
-            });
+            if (results && results.length > 0) {
+              return json({
+                success: true,
+                message: `Email already sent previously for reminder ${body.reminder_id} to ${targetEmail} (D1 Deduplication active).`,
+                skipped: true,
+              });
+            }
+          } catch (e) {
+            console.error('Deduplication check warning:', e);
           }
         }
 
@@ -194,12 +263,16 @@ export default {
 
         // Log sent status into D1 DB to prevent duplicate alerts
         if (body.reminder_id && env.DB) {
-          const logId = 'log-' + Date.now();
-          await env.DB.prepare(`
-            INSERT INTO sent_email_logs (id, reminder_id, recipient)
-            VALUES (?, ?, ?)
-            ON CONFLICT(reminder_id, recipient) DO NOTHING
-          `).bind(logId, body.reminder_id, targetEmail).run();
+          try {
+            const logId = 'log-' + Date.now();
+            await env.DB.prepare(`
+              INSERT INTO sent_email_logs (id, reminder_id, recipient)
+              VALUES (?, ?, ?)
+              ON CONFLICT(reminder_id, recipient) DO NOTHING
+            `).bind(logId, body.reminder_id, targetEmail).run();
+          } catch (e) {
+            console.error('sent_email_logs insert warning:', e);
+          }
         }
 
         return json({
@@ -231,7 +304,7 @@ export default {
     }
 
     try {
-      await ensureLogsTable(env.DB);
+      await ensureTables(env.DB);
 
       // Query pending reminders where send_email = 1
       const { results } = await env.DB.prepare(`
