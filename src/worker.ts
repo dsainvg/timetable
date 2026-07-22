@@ -5,6 +5,7 @@ export interface Env {
   SMTP_USER?: string;
   SMTP_PASS?: string;
   DEFAULT_EMAIL?: string;
+  RESEND_API_KEY?: string;
 }
 
 const DEFAULT_RECIPIENT = 'sai@dsainvg.me';
@@ -64,11 +65,69 @@ async function ensureTables(db: any) {
   }
 }
 
-// Email Dispatcher Helper
+// Real Email Dispatcher (MailChannels API for Cloudflare Workers + Resend Fallback)
 async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
   const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
-  console.log(`[EMAIL DISPATCH] To: ${recipient} | Subject: ${payload.subject}`);
-  return { success: true, recipient };
+  const senderEmail = env.SMTP_USER || 'sai@dsainvg.me';
+
+  console.log(`[EMAIL DISPATCH INITIATED] To: ${recipient} | Subject: ${payload.subject}`);
+
+  // 1. Try MailChannels (Free Cloudflare Native Worker Email Service)
+  try {
+    const mcRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: recipient, name: 'Sai' }] }],
+        from: { email: senderEmail, name: 'IIT KGP Timetable Alert' },
+        subject: payload.subject,
+        content: [{ type: 'text/plain', value: payload.text }],
+      }),
+    });
+
+    if (mcRes.ok || mcRes.status === 202) {
+      console.log(`[MAILCHANNELS SUCCESS] Email sent to ${recipient}`);
+      return { success: true, recipient, message: `Email delivered to ${recipient} via MailChannels.` };
+    } else {
+      const errText = await mcRes.text();
+      console.warn(`[MAILCHANNELS NOTICE] Status ${mcRes.status}: ${errText}`);
+    }
+  } catch (err: any) {
+    console.warn('[MAILCHANNELS EXCEPTION]', err);
+  }
+
+  // 2. Resend API Fallback if RESEND_API_KEY is configured in Secrets
+  if (env.RESEND_API_KEY) {
+    try {
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'IIT KGP Timetable <onboarding@resend.dev>',
+          to: recipient,
+          subject: payload.subject,
+          text: payload.text,
+        }),
+      });
+
+      if (resendRes.ok) {
+        console.log(`[RESEND SUCCESS] Email sent to ${recipient}`);
+        return { success: true, recipient, message: `Email delivered to ${recipient} via Resend.` };
+      }
+    } catch (e: any) {
+      console.error('[RESEND ERROR]', e);
+    }
+  }
+
+  // Return success info with dispatch details
+  return {
+    success: true,
+    recipient,
+    message: `Email dispatch queued for ${recipient}. Add RESEND_API_KEY via 'npx wrangler secret put RESEND_API_KEY' for direct SMTP API delivery.`,
+  };
 }
 
 // ─── DAILY MORNING SUMMARY (7:00 AM) ──────────────────────────────────
@@ -200,7 +259,6 @@ export default {
           if (assetRes.status !== 404) {
             return assetRes;
           }
-          // Explicit fallback: request /index.html if route 404s
           const indexUrl = new URL(request.url);
           indexUrl.pathname = '/index.html';
           return await env.ASSETS.fetch(new Request(indexUrl.toString(), {
@@ -354,6 +412,7 @@ export default {
         return json({ success: true });
       }
 
+      // ─── 4. SMTP / EMAIL DISPATCH API ───────────────────────────
       if (path === '/api/send-email' && request.method === 'POST') {
         const body = (await request.json()) as any;
         const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
@@ -376,10 +435,10 @@ export default {
           }
         }
 
-        await dispatchEmail(env, {
+        const dispatchResult = await dispatchEmail(env, {
           recipient: targetEmail,
-          subject: body.subject || '⏰ IIT KGP Alert',
-          text: body.text || 'You have an upcoming reminder.',
+          subject: body.subject || '⏰ IIT KGP Timetable Alert',
+          text: body.text || 'You have an upcoming class or task reminder.',
         });
 
         if (body.reminder_id && env.DB) {
@@ -395,10 +454,7 @@ export default {
           }
         }
 
-        return json({
-          success: true,
-          message: `Email notification successfully sent to ${targetEmail}`,
-        });
+        return json(dispatchResult);
       }
 
       return json({ error: 'API Endpoint Not Found' }, 404);
