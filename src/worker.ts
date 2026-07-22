@@ -193,14 +193,14 @@ export default {
     const path = url.pathname;
 
     try {
-      // ─── 1. ALL NON-API ROUTES (/tt, /interns, /reminders, /) ──
+      // ─── 1. ALL NON-API ROUTES (/tt, /interns, /reminders, /, etc.) ──
       if (!path.startsWith('/api/')) {
         if (env.ASSETS) {
           const assetRes = await env.ASSETS.fetch(request);
           if (assetRes.status !== 404) {
             return assetRes;
           }
-          // Fallback to index.html for SPA routes
+          // Explicit fallback: request /index.html if route 404s
           const indexUrl = new URL(request.url);
           indexUrl.pathname = '/index.html';
           return await env.ASSETS.fetch(new Request(indexUrl.toString(), {
@@ -208,7 +208,7 @@ export default {
             headers: request.headers,
           }));
         }
-        return json({ error: 'Not Found' }, 404);
+        return json({ error: 'Asset binding not configured' }, 500);
       }
 
       // ─── 2. API ROUTES (/api/*) ──────────────────────────────────
