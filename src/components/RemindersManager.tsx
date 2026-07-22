@@ -118,7 +118,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
               Tasks & Submissions Portal
             </h2>
             <p style={{ fontSize:11, color:'#475569', marginTop:4 }}>
-              Cloudflare D1 Synced · Gmail SMTP: <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>onlyforgdb@gmail.com</strong>
+              Cloudflare D1 Synced • SMTP Alerts to <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>sai@dsainvg.me</strong>
             </p>
           </div>
 
@@ -484,7 +484,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   style={{ width:15, height:15, cursor:'pointer', accentColor:'#6366f1' }}
                 />
                 <span style={{ fontSize:12, color:'#94a3b8' }}>
-                  Send immediate Gmail alert to <strong style={{ color:'#818cf8' }}>onlyforgdb@gmail.com</strong>
+                  Send immediate email alert to <strong style={{ color:'#818cf8' }}>sai@dsainvg.me</strong>
                 </span>
               </label>
 

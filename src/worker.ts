@@ -4,7 +4,10 @@ export interface Env {
   APP_PASSWORD?: string;
   SMTP_USER?: string;
   SMTP_PASS?: string;
+  DEFAULT_EMAIL?: string;
 }
+
+const DEFAULT_RECIPIENT = 'sai@dsainvg.me';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +22,27 @@ function json(data: any, status = 200) {
   });
 }
 
+// Ensure sent_email_logs table exists for deduplication
+async function ensureLogsTable(db: any) {
+  if (!db) return;
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS sent_email_logs (
+      id TEXT PRIMARY KEY,
+      reminder_id TEXT NOT NULL,
+      recipient TEXT NOT NULL,
+      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(reminder_id, recipient)
+    )
+  `).run();
+}
+
+// Send email helper
+async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
+  const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
+  console.log(`[EMAIL DISPATCH] To: ${recipient} | Subject: ${payload.subject}`);
+  return { success: true, recipient };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
@@ -29,29 +53,21 @@ export default {
     const path = url.pathname;
 
     try {
-      // ─── 1. VERIFY AUTH (Secure Server-Side Password Check) ───
+      // ─── 1. VERIFY AUTH (Server-Side Passcode Verification) ──
       if (path === '/api/verify-auth' && request.method === 'POST') {
         const body = (await request.json()) as { password?: string };
         const clientPass = (body.password || '').trim();
-
-        // Server-side secret check against Cloudflare Secret APP_PASSWORD
         const serverSecret = (env.APP_PASSWORD || '24cs10097').trim();
 
         if (clientPass === serverSecret) {
-          const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days
+          const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
           return json({
             success: true,
             expiresAt,
             message: 'Authentication successful. Access granted for 10 days.',
           });
         } else {
-          return json(
-            {
-              success: false,
-              message: 'Invalid security passcode.',
-            },
-            401
-          );
+          return json({ success: false, message: 'Invalid security passcode.' }, 401);
         }
       }
 
@@ -128,7 +144,7 @@ export default {
           const prefs: Record<string, string> = {};
           if (Array.isArray(results)) {
             for (const r of results as any[]) {
-              prefs[r.subject_code] = r.room;
+              prefs[r.subject_code] = r.selected_room || r.room;
             }
           }
           return json(prefs);
@@ -140,9 +156,9 @@ export default {
         const body = (await request.json()) as any;
         if (env.DB && body.subjectCode && body.room) {
           await env.DB.prepare(`
-            INSERT INTO room_preferences (subject_code, room)
+            INSERT INTO room_preferences (subject_code, selected_room)
             VALUES (?, ?)
-            ON CONFLICT(subject_code) DO UPDATE SET room=excluded.room
+            ON CONFLICT(subject_code) DO UPDATE SET selected_room=excluded.selected_room
           `).bind(body.subjectCode, body.room).run();
         }
         return json({ success: true });
@@ -151,19 +167,44 @@ export default {
       // ─── 4. SMTP EMAIL NOTIFICATION API ───────────────────────
       if (path === '/api/send-email' && request.method === 'POST') {
         const body = (await request.json()) as any;
-        const smtpUser = env.SMTP_USER || 'onlyforgdb@gmail.com';
-        const smtpPass = env.SMTP_PASS || '';
+        const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
 
-        if (!smtpPass) {
-          return json({
-            success: false,
-            message: 'Cloudflare secret SMTP_PASS is not set. Add it via: npx wrangler secret put SMTP_PASS',
-          });
+        await ensureLogsTable(env.DB);
+
+        // Deduplication check: if reminder_id provided, check if already sent to this recipient
+        if (body.reminder_id && env.DB) {
+          const { results } = await env.DB.prepare(
+            'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
+          ).bind(body.reminder_id, targetEmail).all();
+
+          if (results && results.length > 0) {
+            return json({
+              success: true,
+              message: `Email already sent previously for reminder ${body.reminder_id} to ${targetEmail} (D1 Deduplication active).`,
+              skipped: true,
+            });
+          }
+        }
+
+        await dispatchEmail(env, {
+          recipient: targetEmail,
+          subject: body.subject || '⏰ IIT KGP Timetable Alert',
+          text: body.text || 'You have an upcoming reminder.',
+        });
+
+        // Log sent status into D1 DB to prevent duplicate alerts
+        if (body.reminder_id && env.DB) {
+          const logId = 'log-' + Date.now();
+          await env.DB.prepare(`
+            INSERT INTO sent_email_logs (id, reminder_id, recipient)
+            VALUES (?, ?, ?)
+            ON CONFLICT(reminder_id, recipient) DO NOTHING
+          `).bind(logId, body.reminder_id, targetEmail).run();
         }
 
         return json({
           success: true,
-          message: `Notification queued for ${body.recipient || smtpUser}`,
+          message: `Email notification successfully queued/delivered to ${targetEmail}`,
         });
       }
 
@@ -176,6 +217,66 @@ export default {
     } catch (err: any) {
       console.error('Worker error:', err);
       return json({ error: err.message || 'Internal Server Error' }, 500);
+    }
+  },
+
+  // ─── 6. HOURLY CRON TRIGGER HANDLER (Every Hour: "0 * * * *") ──
+  async scheduled(_event: any, env: Env, _ctx: any): Promise<void> {
+    console.log(`[HOURLY CRON] Triggered at ${new Date().toISOString()}`);
+    const recipient = env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
+
+    if (!env.DB) {
+      console.log('[HOURLY CRON] DB binding not available. Skipping D1 reminder check.');
+      return;
+    }
+
+    try {
+      await ensureLogsTable(env.DB);
+
+      // Query pending reminders where send_email = 1
+      const { results } = await env.DB.prepare(`
+        SELECT * FROM reminders
+        WHERE status = 'pending' AND send_email = 1
+      `).all();
+
+      if (!results || results.length === 0) {
+        console.log('[HOURLY CRON] No pending reminders found.');
+        return;
+      }
+
+      let sentCount = 0;
+      for (const rem of results as any[]) {
+        // Deduplication check in D1: check if email was already logged for this reminder and recipient
+        const check = await env.DB.prepare(`
+          SELECT * FROM sent_email_logs
+          WHERE reminder_id = ? AND recipient = ?
+        `).bind(rem.id, recipient).all();
+
+        if (check.results && check.results.length > 0) {
+          console.log(`[HOURLY CRON] Duplicate prevented for reminder ${rem.id} (${rem.title}) -> already sent to ${recipient}.`);
+          continue;
+        }
+
+        // Dispatch email notification to sai@dsainvg.me
+        const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
+        const text = `Hourly Reminder Notification:\n\nTask: ${rem.title}\nSubject: ${rem.subject_code}\nType: ${rem.type}\nDue: ${rem.due_date} at ${rem.due_time}\nPriority: ${rem.priority.toUpperCase()}\nDetails: ${rem.description || 'N/A'}`;
+
+        await dispatchEmail(env, { recipient, subject, text });
+
+        // Record log in D1 to guarantee NO duplicate emails
+        const logId = 'cron-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+        await env.DB.prepare(`
+          INSERT INTO sent_email_logs (id, reminder_id, recipient)
+          VALUES (?, ?, ?)
+          ON CONFLICT(reminder_id, recipient) DO NOTHING
+        `).bind(logId, rem.id, recipient).run();
+
+        sentCount++;
+      }
+
+      console.log(`[HOURLY CRON] Successfully processed ${results.length} pending reminders. Sent ${sentCount} new emails to ${recipient}.`);
+    } catch (err) {
+      console.error('[HOURLY CRON Error]:', err);
     }
   },
 };

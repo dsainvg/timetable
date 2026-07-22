@@ -8,7 +8,7 @@ interface EmailSettingsModalProps {
 }
 
 export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [recipient, setRecipient] = useState('onlyforgdb@gmail.com');
+  const [recipient, setRecipient] = useState('sai@dsainvg.me');
   const [appPassword, setAppPassword] = useState(() => {
     return localStorage.getItem('iitkgp_timetable_gmail_app_pass') || '';
   });
@@ -25,7 +25,7 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
     localStorage.setItem('iitkgp_timetable_gmail_app_pass', appPassword);
     setStatus({
       type: 'success',
-      message: 'Gmail App Password saved locally for SMTP email dispatch!',
+      message: 'SMTP settings saved locally!',
     });
   };
 
@@ -34,9 +34,9 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
     setStatus({ type: null, message: '' });
 
     const result = await sendEmailNotification({
-      recipient: recipient.trim() || 'onlyforgdb@gmail.com',
+      recipient: recipient.trim() || 'sai@dsainvg.me',
       subject: '🧪 Test Email Alert - IIT KGP Timetable Portal',
-      text: 'This is a test email verification from your Timetable & Reminder Web Application (24CS10097) sent via Gmail SMTP from onlyforgdb@gmail.com.',
+      text: 'This is a test email verification from your Timetable & Reminder Web Application (24CS10097) sent to sai@dsainvg.me.',
     });
 
     if (result.success) {

@@ -26,6 +26,15 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table to tackle duplicate email notifications
+CREATE TABLE IF NOT EXISTS sent_email_logs (
+  id TEXT PRIMARY KEY,
+  reminder_id TEXT NOT NULL,
+  recipient TEXT NOT NULL,
+  sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(reminder_id, recipient)
+);
+
 -- Insert Default Room Preferences (NC241 for CS31007/CS31003, NC231 for CS31005)
 INSERT OR REPLACE INTO room_preferences (subject_code, selected_room) VALUES
   ('CS31007', 'NC241'),
