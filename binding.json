@@ -1,0 +1,9 @@
+{
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "timetable",
+            "database_id": "6b53ce94-8279-4643-bf1c-b35715815fe6"
+        }
+    ]
+}
