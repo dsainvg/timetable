@@ -111,17 +111,22 @@ export const COURSES: Record<string, Course> = {
   },
 };
 
-export const TIME_SLOTS = [
+export const MORNING_SLOTS = [
   { index: 0, timeLabel: '8:00 AM - 8:55 AM', start: '08:00', end: '08:55' },
   { index: 1, timeLabel: '9:00 AM - 9:55 AM', start: '09:00', end: '09:55' },
   { index: 2, timeLabel: '10:00 AM - 10:55 AM', start: '10:00', end: '10:55' },
   { index: 3, timeLabel: '11:00 AM - 11:55 AM', start: '11:00', end: '11:55' },
   { index: 4, timeLabel: '12:00 PM - 12:55 PM', start: '12:00', end: '12:55' },
+];
+
+export const AFTERNOON_SLOTS = [
   { index: 5, timeLabel: '2:00 PM - 2:55 PM', start: '14:00', end: '14:55' },
   { index: 6, timeLabel: '3:00 PM - 3:55 PM', start: '15:00', end: '15:55' },
   { index: 7, timeLabel: '4:00 PM - 4:55 PM', start: '16:00', end: '16:55' },
-  { index: 8, timeLabel: '5:00 PM - 5:55 PM', start: '17:00', end: '17:55' },
 ];
+
+export const TIME_SLOTS = [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+
 
 export const SCHEDULE_GRID: ClassSlot[] = [
   // MONDAY
@@ -216,9 +221,9 @@ export const SCHEDULE_GRID: ClassSlot[] = [
     id: 'tue-lab',
     day: 'Tue',
     dayFull: 'Tuesday',
-    startTime: '3:00 PM',
-    endTime: '5:55 PM',
-    slotIndex: 6,
+    startTime: '2:00 PM',
+    endTime: '4:55 PM',
+    slotIndex: 5,
     subjectCode: 'CS39003',
     defaultRoom: 'Lab',
     labSpan: 3,

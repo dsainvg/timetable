@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Clock, MapPin, BookOpen, CheckCircle2,
-  BellRing, Sparkles, CalendarDays, Send, Building2, BadgeAlert,
+  BellRing, Sparkles, CalendarDays, Send, BadgeAlert,
 } from 'lucide-react';
 import { SCHEDULE_GRID, COURSES, ClassSlot } from '../data/timetableData';
 import { Reminder } from '../services/api';
@@ -224,9 +224,8 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
               );
             })}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#475569' }}>
-            <Building2 size={13} style={{ color:'#6366f1' }} />
-            <span>Multi-slot: <strong style={{ color:'#a5b4fc' }}>NC241</strong> & <strong style={{ color:'#4ade80' }}>NC231</strong></span>
+          <div style={{ fontSize:11, color:'#475569' }}>
+            <span>NC241 & NC231 Defaulted</span>
           </div>
         </div>
       </div>
@@ -340,9 +339,6 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
                     <div style={{ fontSize:12, fontWeight:800, color:'#4ade80', display:'flex', alignItems:'center', gap:4 }}>
                       <MapPin size={11} style={{ color:'#4ade80' }} />
                       {room}
-                      {slot.multiRooms && (
-                        <span style={{ fontSize:9, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:4, padding:'0px 4px' }}>Multi</span>
-                      )}
                     </div>
                   </div>
                 </div>
