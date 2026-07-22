@@ -1,3 +1,6 @@
+// @ts-ignore
+import { connect } from 'cloudflare:sockets';
+
 export interface Env {
   DB?: any;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
@@ -5,7 +8,6 @@ export interface Env {
   SMTP_USER?: string;
   SMTP_PASS?: string;
   DEFAULT_EMAIL?: string;
-  RESEND_API_KEY?: string;
 }
 
 const DEFAULT_RECIPIENT = 'sai@dsainvg.me';
@@ -21,6 +23,158 @@ function json(data: any, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
+}
+
+// Direct Gmail SMTP Dispatcher using Cloudflare TLS Sockets over Port 465
+async function sendGmailSmtp(options: {
+  smtpUser: string;
+  smtpPass: string;
+  recipient: string;
+  subject: string;
+  text: string;
+}) {
+  const { smtpUser, smtpPass, recipient, subject, text } = options;
+
+  console.log(`[GMAIL SMTP CONNECT] Connecting to smtp.gmail.com:465 for ${recipient}...`);
+
+  const socket = connect({ hostname: 'smtp.gmail.com', port: 465 }, { secureTransport: 'on' });
+  const writer = socket.writable.getWriter();
+  const reader = socket.readable.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  async function readResponse(): Promise<string> {
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value);
+      // SMTP responses end with CRLF
+      if (buffer.endsWith('\r\n') || buffer.includes('\n')) {
+        break;
+      }
+    }
+    console.log('[SMTP IN]', buffer.trim());
+    return buffer;
+  }
+
+  async function sendCmd(cmd: string): Promise<string> {
+    console.log('[SMTP OUT]', cmd.startsWith('AUTH') || cmd.length > 20 ? '[CREDENTIALS HIDDEN]' : cmd);
+    await writer.write(encoder.encode(cmd + '\r\n'));
+    return await readResponse();
+  }
+
+  try {
+    // 1. Initial Greeting 220
+    const greeting = await readResponse();
+    if (!greeting.startsWith('220')) {
+      throw new Error('SMTP Greeting failed: ' + greeting);
+    }
+
+    // 2. EHLO
+    const ehlo = await sendCmd('EHLO localhost');
+    if (!ehlo.startsWith('250')) {
+      throw new Error('SMTP EHLO failed: ' + ehlo);
+    }
+
+    // 3. AUTH LOGIN
+    const auth = await sendCmd('AUTH LOGIN');
+    if (!auth.startsWith('334')) {
+      throw new Error('SMTP AUTH LOGIN failed: ' + auth);
+    }
+
+    // 4. Username (base64)
+    const userResp = await sendCmd(btoa(smtpUser));
+    if (!userResp.startsWith('334')) {
+      throw new Error('SMTP Username rejected: ' + userResp);
+    }
+
+    // 5. Password (base64)
+    const cleanPass = smtpPass.replace(/\s+/g, '');
+    const passResp = await sendCmd(btoa(cleanPass));
+    if (!passResp.startsWith('235')) {
+      throw new Error(`Gmail SMTP Auth Failed (235 expected): ${passResp}. Ensure Gmail App Password is configured.`);
+    }
+
+    // 6. MAIL FROM
+    const mailFrom = await sendCmd(`MAIL FROM:<${smtpUser}>`);
+    if (!mailFrom.startsWith('250')) {
+      throw new Error('SMTP MAIL FROM failed: ' + mailFrom);
+    }
+
+    // 7. RCPT TO
+    const rcptTo = await sendCmd(`RCPT TO:<${recipient}>`);
+    if (!rcptTo.startsWith('250')) {
+      throw new Error('SMTP RCPT TO failed: ' + rcptTo);
+    }
+
+    // 8. DATA
+    const dataResp = await sendCmd('DATA');
+    if (!dataResp.startsWith('354')) {
+      throw new Error('SMTP DATA failed: ' + dataResp);
+    }
+
+    // 9. Send Email Headers & Body
+    const rawMessage =
+      `From: "IIT KGP Timetable Portal" <${smtpUser}>\r\n` +
+      `To: <${recipient}>\r\n` +
+      `Subject: ${subject}\r\n` +
+      `Content-Type: text/plain; charset=utf-8\r\n` +
+      `Date: ${new Date().toUTCString()}\r\n` +
+      `\r\n` +
+      `${text}\r\n` +
+      `.\r\n`;
+
+    await writer.write(encoder.encode(rawMessage));
+    const sendResult = await readResponse();
+
+    if (!sendResult.startsWith('250')) {
+      throw new Error('SMTP Message submission failed: ' + sendResult);
+    }
+
+    // 10. QUIT
+    await sendCmd('QUIT');
+    try { socket.close(); } catch {}
+
+    return {
+      success: true,
+      recipient,
+      message: `Email successfully sent to ${recipient} via Gmail SMTP (${smtpUser})!`,
+    };
+  } catch (err: any) {
+    try { socket.close(); } catch {}
+    console.error('[GMAIL SMTP ERROR]', err);
+    throw err;
+  }
+}
+
+// Wrapper Helper
+async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
+  const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
+  const smtpUser = env.SMTP_USER || 'onlyforgdb@gmail.com';
+  const smtpPass = env.SMTP_PASS || '';
+
+  if (!smtpPass) {
+    return {
+      success: false,
+      message: `Gmail SMTP_PASS secret is missing. Configure it on Cloudflare via: npx wrangler secret put SMTP_PASS`,
+    };
+  }
+
+  try {
+    return await sendGmailSmtp({
+      smtpUser,
+      smtpPass,
+      recipient,
+      subject: payload.subject,
+      text: payload.text,
+    });
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Gmail SMTP dispatch failed.',
+    };
+  }
 }
 
 // Auto-initialize D1 Database Tables
@@ -63,71 +217,6 @@ async function ensureTables(db: any) {
   } catch (err) {
     console.error('D1 Table Auto-Init Warning:', err);
   }
-}
-
-// Real Email Dispatcher (MailChannels API for Cloudflare Workers + Resend Fallback)
-async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
-  const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
-  const senderEmail = env.SMTP_USER || 'sai@dsainvg.me';
-
-  console.log(`[EMAIL DISPATCH INITIATED] To: ${recipient} | Subject: ${payload.subject}`);
-
-  // 1. Try MailChannels (Free Cloudflare Native Worker Email Service)
-  try {
-    const mcRes = await fetch('https://api.mailchannels.net/tx/v1/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: recipient, name: 'Sai' }] }],
-        from: { email: senderEmail, name: 'IIT KGP Timetable Alert' },
-        subject: payload.subject,
-        content: [{ type: 'text/plain', value: payload.text }],
-      }),
-    });
-
-    if (mcRes.ok || mcRes.status === 202) {
-      console.log(`[MAILCHANNELS SUCCESS] Email sent to ${recipient}`);
-      return { success: true, recipient, message: `Email delivered to ${recipient} via MailChannels.` };
-    } else {
-      const errText = await mcRes.text();
-      console.warn(`[MAILCHANNELS NOTICE] Status ${mcRes.status}: ${errText}`);
-    }
-  } catch (err: any) {
-    console.warn('[MAILCHANNELS EXCEPTION]', err);
-  }
-
-  // 2. Resend API Fallback if RESEND_API_KEY is configured in Secrets
-  if (env.RESEND_API_KEY) {
-    try {
-      const resendRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'IIT KGP Timetable <onboarding@resend.dev>',
-          to: recipient,
-          subject: payload.subject,
-          text: payload.text,
-        }),
-      });
-
-      if (resendRes.ok) {
-        console.log(`[RESEND SUCCESS] Email sent to ${recipient}`);
-        return { success: true, recipient, message: `Email delivered to ${recipient} via Resend.` };
-      }
-    } catch (e: any) {
-      console.error('[RESEND ERROR]', e);
-    }
-  }
-
-  // Return success info with dispatch details
-  return {
-    success: true,
-    recipient,
-    message: `Email dispatch queued for ${recipient}. Add RESEND_API_KEY via 'npx wrangler secret put RESEND_API_KEY' for direct SMTP API delivery.`,
-  };
 }
 
 // ─── DAILY MORNING SUMMARY (7:00 AM) ──────────────────────────────────
@@ -412,7 +501,7 @@ export default {
         return json({ success: true });
       }
 
-      // ─── 4. SMTP / EMAIL DISPATCH API ───────────────────────────
+      // ─── 4. GMAIL SMTP DISPATCH API ─────────────────────────────
       if (path === '/api/send-email' && request.method === 'POST') {
         const body = (await request.json()) as any;
         const targetEmail = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
@@ -441,7 +530,7 @@ export default {
           text: body.text || 'You have an upcoming class or task reminder.',
         });
 
-        if (body.reminder_id && env.DB) {
+        if (body.reminder_id && env.DB && dispatchResult.success) {
           try {
             const logId = 'log-' + Date.now();
             await env.DB.prepare(`
@@ -454,7 +543,7 @@ export default {
           }
         }
 
-        return json(dispatchResult);
+        return json(dispatchResult, dispatchResult.success ? 200 : 400);
       }
 
       return json({ error: 'API Endpoint Not Found' }, 404);
