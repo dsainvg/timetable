@@ -10,7 +10,7 @@ export interface Env {
   DEFAULT_EMAIL?: string;
 }
 
-const DEFAULT_RECIPIENT = 'sai@dsainvg.me';
+const DEFAULT_RECIPIENT = 'me@timio.dpdns.org';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -25,15 +25,67 @@ function json(data: any, status = 200) {
   });
 }
 
+// ─── RICH HTML EMAIL TEMPLATE BUILDER ────────────────────────────────
+function buildHtmlEmail(options: {
+  title: string;
+  subtitle?: string;
+  contentHtml: string;
+  accentColor?: string;
+}) {
+  const accent = options.accentColor || '#6366f1';
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; color: #f3f4f6; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+    .header { background: linear-gradient(135deg, ${accent} 0%, #4338ca 100%); padding: 26px 28px; text-align: left; }
+    .header h1 { margin: 0; font-size: 20px; color: #ffffff; font-weight: 800; letter-spacing: -0.02em; }
+    .header p { margin: 6px 0 0; font-size: 12px; color: rgba(255,255,255,0.85); }
+    .body { padding: 28px; font-size: 14px; line-height: 1.6; color: #cbd5e1; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; }
+    .card-title { font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+    .card-sub { font-size: 12px; color: #94a3b8; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-top: 6px; }
+    .badge-high { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+    .badge-medium { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); }
+    .badge-low { background: rgba(74,222,128,0.2); color: #4ade80; border: 1px solid rgba(74,222,128,0.4); }
+    .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .table th { background: #1e293b; color: #818cf8; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; }
+    .table td { padding: 12px; border-bottom: 1px solid rgba(51,65,85,0.5); font-size: 13px; color: #e2e8f0; }
+    .footer { border-top: 1px solid #1e293b; padding: 18px 28px; text-align: center; font-size: 11px; color: #64748b; background: #0b0f19; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${options.title}</h1>
+      ${options.subtitle ? `<p>${options.subtitle}</p>` : ''}
+    </div>
+    <div class="body">
+      ${options.contentHtml}
+    </div>
+    <div class="footer">
+      This is an auto-generated mail from your IIT Kharagpur Timetable & Task Portal (24CS10097).
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+
 // Direct Gmail SMTP Dispatcher using Cloudflare TLS Sockets over Port 465
 async function sendGmailSmtp(options: {
   smtpUser: string;
   smtpPass: string;
   recipient: string;
   subject: string;
-  text: string;
+  htmlContent: string;
 }) {
-  const { smtpUser, smtpPass, recipient, subject, text } = options;
+  const { smtpUser, smtpPass, recipient, subject, htmlContent } = options;
 
   console.log(`[GMAIL SMTP CONNECT] Connecting to smtp.gmail.com:465 for ${recipient}...`);
 
@@ -49,17 +101,14 @@ async function sendGmailSmtp(options: {
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value);
-      // SMTP responses end with CRLF
       if (buffer.endsWith('\r\n') || buffer.includes('\n')) {
         break;
       }
     }
-    console.log('[SMTP IN]', buffer.trim());
     return buffer;
   }
 
   async function sendCmd(cmd: string): Promise<string> {
-    console.log('[SMTP OUT]', cmd.startsWith('AUTH') || cmd.length > 20 ? '[CREDENTIALS HIDDEN]' : cmd);
     await writer.write(encoder.encode(cmd + '\r\n'));
     return await readResponse();
   }
@@ -114,15 +163,16 @@ async function sendGmailSmtp(options: {
       throw new Error('SMTP DATA failed: ' + dataResp);
     }
 
-    // 9. Send Email Headers & Body
+    // 9. Send Email Message Content with HTML Headers
     const rawMessage =
       `From: "IIT KGP Timetable Portal" <${smtpUser}>\r\n` +
       `To: <${recipient}>\r\n` +
       `Subject: ${subject}\r\n` +
-      `Content-Type: text/plain; charset=utf-8\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: text/html; charset=utf-8\r\n` +
       `Date: ${new Date().toUTCString()}\r\n` +
       `\r\n` +
-      `${text}\r\n` +
+      `${htmlContent}\r\n` +
       `.\r\n`;
 
     await writer.write(encoder.encode(rawMessage));
@@ -139,7 +189,7 @@ async function sendGmailSmtp(options: {
     return {
       success: true,
       recipient,
-      message: `Email successfully sent to ${recipient} via Gmail SMTP (${smtpUser})!`,
+      message: `Email successfully delivered to ${recipient} via Gmail SMTP!`,
     };
   } catch (err: any) {
     try { socket.close(); } catch {}
@@ -149,7 +199,7 @@ async function sendGmailSmtp(options: {
 }
 
 // Wrapper Helper
-async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text: string }) {
+async function dispatchEmail(env: Env, payload: { recipient: string; subject: string; text?: string; html?: string; title?: string; subtitle?: string; accentColor?: string }) {
   const recipient = payload.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
   const smtpUser = env.SMTP_USER || 'onlyforgdb@gmail.com';
   const smtpPass = env.SMTP_PASS || '';
@@ -161,13 +211,21 @@ async function dispatchEmail(env: Env, payload: { recipient: string; subject: st
     };
   }
 
+  // Build HTML email if not provided directly
+  const htmlContent = payload.html || buildHtmlEmail({
+    title: payload.title || payload.subject || 'IIT KGP Timetable Notification',
+    subtitle: payload.subtitle || 'Autumn Semester 2026-2027',
+    contentHtml: `<p style="margin:0;">${(payload.text || '').replace(/\n/g, '<br/>')}</p>`,
+    accentColor: payload.accentColor || '#6366f1',
+  });
+
   try {
     return await sendGmailSmtp({
       smtpUser,
       smtpPass,
       recipient,
       subject: payload.subject,
-      text: payload.text,
+      htmlContent,
     });
   } catch (err: any) {
     return {
@@ -238,14 +296,31 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
   ).bind(todayStr).all();
 
   const taskList = (dueTasks || []) as any[];
-  const taskText = taskList.length > 0
-    ? taskList.map(t => `• [${t.subject_code}] ${t.title} (${t.due_time || '23:59'})`).join('\n')
-    : 'No pending tasks due today.';
+  const tasksHtml = taskList.length > 0
+    ? taskList.map(t => `
+        <div class="card">
+          <div class="card-title">📌 [${t.subject_code}] ${t.title}</div>
+          <div class="card-sub">Due: ${t.due_time || '23:59'} • ${t.description || 'No additional details'}</div>
+          <span class="badge badge-${t.priority || 'high'}">${(t.priority || 'HIGH').toUpperCase()}</span>
+        </div>
+      `).join('')
+    : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks due today.</div></div>';
+
+  const html = buildHtmlEmail({
+    title: '🌅 Daily Morning Summary',
+    subtitle: `Date: ${todayStr} • Roll No: 24CS10097`,
+    accentColor: '#6366f1',
+    contentHtml: `
+      <h3 style="color:#818cf8; margin-top:0; font-size:16px;">Good Morning!</h3>
+      <p style="color:#94a3b8; font-size:13px;">Here is your daily schedule and task breakdown for today:</p>
+      
+      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks Due Today:</h4>
+      ${tasksHtml}
+    `,
+  });
 
   const subject = `🌅 [Daily Morning Summary] ${todayStr} - IIT Kharagpur`;
-  const text = `Good Morning!\n\nHere is your daily summary for ${todayStr}:\n\n📋 Tasks Due Today:\n${taskText}\n\nHave a productive day!`;
-
-  await dispatchEmail(env, { recipient, subject, text });
+  await dispatchEmail(env, { recipient, subject, html });
 
   await env.DB.prepare(
     'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
@@ -277,18 +352,32 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
   const doneList = (doneItems || []) as any[];
   const pendingList = (pendingItems || []) as any[];
 
-  const doneText = doneList.length > 0
-    ? doneList.map(t => `✓ [${t.subject_code}] ${t.title}`).join('\n')
-    : 'No completed tasks recorded this week.';
+  const doneHtml = doneList.length > 0
+    ? doneList.map(t => `<div class="card" style="border-color:rgba(74,222,128,0.3);"><div class="card-title" style="color:#4ade80;">✓ [${t.subject_code}] ${t.title}</div></div>`).join('')
+    : '<div class="card"><div class="card-sub">No completed tasks recorded this week.</div></div>';
 
-  const pendingText = pendingList.length > 0
-    ? pendingList.map(t => `⏳ [${t.subject_code}] ${t.title} (Due: ${t.due_date} ${t.due_time})`).join('\n')
-    : 'All caught up! No pending tasks.';
+  const pendingHtml = pendingList.length > 0
+    ? pendingList.map(t => `<div class="card" style="border-color:rgba(129,140,248,0.3);"><div class="card-title">⏳ [${t.subject_code}] ${t.title}</div><div class="card-sub">Due: ${t.due_date} ${t.due_time}</div></div>`).join('')
+    : '<div class="card"><div class="card-sub">No upcoming pending tasks!</div></div>';
+
+  const html = buildHtmlEmail({
+    title: '📊 Sunday Weekly Summary & Progress Report',
+    subtitle: `Week of ${todayStr} • IIT Kharagpur`,
+    accentColor: '#7c3aed',
+    contentHtml: `
+      <h3 style="color:#a78bfa; margin-top:0; font-size:16px;">Happy Sunday!</h3>
+      <p style="color:#94a3b8; font-size:13px;">Here is your weekly progress report detailing completed work and upcoming tasks:</p>
+      
+      <h4 style="color:#4ade80; margin:20px 0 10px; font-size:14px;">✅ DONE STUFF (Completed Work):</h4>
+      ${doneHtml}
+
+      <h4 style="color:#818cf8; margin:20px 0 10px; font-size:14px;">📌 NEED TO DO STUFF (Upcoming Tasks):</h4>
+      ${pendingHtml}
+    `,
+  });
 
   const subject = `📊 [Sunday Weekly Summary] Done & Upcoming Tasks - IIT Kharagpur`;
-  const text = `Happy Sunday!\n\nHere is your Weekly Summary:\n\n✅ DONE STUFF (Completed Tasks):\n${doneText}\n\n📌 NEED TO DO STUFF (Upcoming Tasks):\n${pendingText}\n\nGood luck for the upcoming week!`;
-
-  await dispatchEmail(env, { recipient, subject, text });
+  await dispatchEmail(env, { recipient, subject, html });
 
   await env.DB.prepare(
     'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
@@ -313,10 +402,22 @@ async function processHourlyReminders(env: Env, recipient: string) {
 
     if (check.results && check.results.length > 0) continue;
 
-    const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
-    const text = `Reminder Notification:\n\nTask: ${rem.title}\nSubject: ${rem.subject_code}\nType: ${rem.type}\nDue: ${rem.due_date} at ${rem.due_time}\nPriority: ${rem.priority.toUpperCase()}\nDetails: ${rem.description || 'N/A'}`;
+    const html = buildHtmlEmail({
+      title: `⏰ Reminder: ${rem.title}`,
+      subtitle: `Subject: ${rem.subject_code} • Priority: ${rem.priority.toUpperCase()}`,
+      accentColor: '#e11d48',
+      contentHtml: `
+        <div class="card">
+          <div class="card-title">${rem.title}</div>
+          <div class="card-sub">Due: ${rem.due_date} at ${rem.due_time}</div>
+          <p style="margin:10px 0 0; color:#e2e8f0; font-size:13px;">${rem.description || 'No additional details.'}</p>
+          <span class="badge badge-${rem.priority || 'high'}">${(rem.priority || 'HIGH').toUpperCase()}</span>
+        </div>
+      `,
+    });
 
-    await dispatchEmail(env, { recipient, subject, text });
+    const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
+    await dispatchEmail(env, { recipient, subject, html });
 
     const logId = 'cron-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
     await env.DB.prepare(`
@@ -524,10 +625,22 @@ export default {
           }
         }
 
+        const html = buildHtmlEmail({
+          title: body.subject || '🧪 Test Email Alert',
+          subtitle: `Sent to ${targetEmail} • IIT Kharagpur Portal`,
+          accentColor: '#6366f1',
+          contentHtml: `
+            <div class="card">
+              <div class="card-title">Notification Details</div>
+              <p style="margin:8px 0 0; color:#e2e8f0;">${body.text || 'This is a test notification from your IIT Kharagpur Timetable & Tasks Application.'}</p>
+            </div>
+          `,
+        });
+
         const dispatchResult = await dispatchEmail(env, {
           recipient: targetEmail,
           subject: body.subject || '⏰ IIT KGP Timetable Alert',
-          text: body.text || 'You have an upcoming class or task reminder.',
+          html,
         });
 
         if (body.reminder_id && env.DB && dispatchResult.success) {

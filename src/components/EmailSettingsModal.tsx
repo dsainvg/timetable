@@ -8,7 +8,7 @@ interface EmailSettingsModalProps {
 }
 
 export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [recipient, setRecipient] = useState('sai@dsainvg.me');
+  const [recipient, setRecipient] = useState('me@timio.dpdns.org');
   const [appPassword, setAppPassword] = useState(() => {
     return localStorage.getItem('iitkgp_timetable_gmail_app_pass') || '';
   });
@@ -34,9 +34,9 @@ export const EmailSettingsModal: React.FC<EmailSettingsModalProps> = ({ isOpen, 
     setStatus({ type: null, message: '' });
 
     const result = await sendEmailNotification({
-      recipient: recipient.trim() || 'sai@dsainvg.me',
+      recipient: recipient.trim() || 'me@timio.dpdns.org',
       subject: '🧪 Test Email Alert - IIT KGP Timetable Portal',
-      text: 'This is a test email verification from your Timetable & Reminder Web Application (24CS10097) sent to sai@dsainvg.me.',
+      text: 'This is a test email verification from your Timetable & Reminder Web Application (24CS10097) sent to me@timio.dpdns.org.',
     });
 
     if (result.success) {
