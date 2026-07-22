@@ -76,7 +76,6 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
   const todayStr = new Date().toISOString().split('T')[0];
   const summaryKey = `daily-summary-${todayStr}`;
 
-  // Check deduplication log
   const check = await env.DB.prepare(
     'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
   ).bind(summaryKey, recipient).all();
@@ -86,7 +85,6 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
     return;
   }
 
-  // Get tasks due today
   const { results: dueTasks } = await env.DB.prepare(
     "SELECT * FROM reminders WHERE due_date = ? AND status = 'pending'"
   ).bind(todayStr).all();
@@ -101,7 +99,6 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
 
   await dispatchEmail(env, { recipient, subject, text });
 
-  // Log in D1
   await env.DB.prepare(
     'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
   ).bind('log-' + Date.now(), summaryKey, recipient).run();
@@ -112,7 +109,6 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
   const todayStr = new Date().toISOString().split('T')[0];
   const summaryKey = `sunday-weekly-summary-${todayStr}`;
 
-  // Check deduplication log
   const check = await env.DB.prepare(
     'SELECT * FROM sent_email_logs WHERE reminder_id = ? AND recipient = ?'
   ).bind(summaryKey, recipient).all();
@@ -122,12 +118,10 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
     return;
   }
 
-  // Done Stuff: completed reminders
   const { results: doneItems } = await env.DB.prepare(
     "SELECT * FROM reminders WHERE status = 'completed'"
   ).all();
 
-  // Need To Do Stuff: pending reminders
   const { results: pendingItems } = await env.DB.prepare(
     "SELECT * FROM reminders WHERE status = 'pending' ORDER BY due_date ASC"
   ).all();
@@ -148,7 +142,6 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
 
   await dispatchEmail(env, { recipient, subject, text });
 
-  // Log in D1
   await env.DB.prepare(
     'INSERT INTO sent_email_logs (id, reminder_id, recipient) VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
   ).bind('log-' + Date.now(), summaryKey, recipient).run();
@@ -200,7 +193,7 @@ export default {
     const path = url.pathname;
 
     try {
-      if (env.DB) {
+      if (env.DB && path.startsWith('/api/')) {
         await ensureTables(env.DB);
       }
 
@@ -395,9 +388,21 @@ export default {
         });
       }
 
-      // ─── 5. STATIC ASSETS FALLBACK ─────────────────────────────
+      // If an unknown /api/* endpoint was requested, return 404 JSON
+      if (path.startsWith('/api/')) {
+        return json({ error: 'API Endpoint Not Found' }, 404);
+      }
+
+      // ─── 5. STATIC ASSETS & SPA ROUTING FALLBACK (/tt, /interns, etc.) ──
       if (env.ASSETS) {
-        return await env.ASSETS.fetch(request);
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404) {
+          return assetResponse;
+        }
+
+        // SPA Fallback: If asset 404s (e.g. client route like /tt), serve index.html
+        const indexRequest = new Request(new URL('/index.html', request.url), request);
+        return await env.ASSETS.fetch(indexRequest);
       }
 
       return json({ error: 'Not Found' }, 404);
@@ -423,19 +428,16 @@ export default {
     try {
       await ensureTables(env.DB);
 
-      // 1. SUNDAY WEEKLY SUMMARY CRON ("0 8 * * 0" or if Sunday 8 AM)
       if (cron === '0 8 * * 0' || (now.getDay() === 0 && now.getHours() === 8)) {
         await sendSundayWeeklySummary(env, recipient);
         return;
       }
 
-      // 2. DAILY MORNING SUMMARY CRON ("0 7 * * *" or if 7 AM)
       if (cron === '0 7 * * *' || now.getHours() === 7) {
         await sendDailyMorningSummary(env, recipient);
         return;
       }
 
-      // 3. HOURLY TASK REMINDERS CHECK ("0 * * * *")
       await processHourlyReminders(env, recipient);
     } catch (err) {
       console.error('[CRON Handler Error]:', err);
