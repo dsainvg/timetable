@@ -5,7 +5,6 @@ import {
   Bell,
   Mail,
   Lock,
-  User,
   Database,
   CheckCircle2,
   Briefcase,
@@ -33,6 +32,8 @@ import {
 type TabId = 'today' | 'timetable' | 'reminders' | 'interns';
 
 export const App: React.FC = () => {
+  const isAnonymousTT = window.location.pathname === '/tt' || window.location.pathname === '/tt/';
+
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -48,6 +49,13 @@ export const App: React.FC = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   useEffect(() => {
+    // If accessing /tt, skip authentication modal entirely
+    if (isAnonymousTT) {
+      setIsAuthenticated(true);
+      loadData();
+      return;
+    }
+
     const authState = checkAuthSession();
     if (authState.isAuthenticated) {
       setIsAuthenticated(true);
@@ -55,7 +63,7 @@ export const App: React.FC = () => {
       setIsAuthModalOpen(true);
     }
     loadData();
-  }, []);
+  }, [isAnonymousTT]);
 
   const loadData = async () => {
     const rData = await getReminders();
@@ -97,6 +105,24 @@ export const App: React.FC = () => {
     const result = await sendEmailNotification({ recipient: 'sai@dsainvg.me', subject, text });
     showToast(result.success ? 'Email delivered!' : `Notice: ${result.message}`, result.success ? 'success' : 'info');
   };
+
+  // ─── ANONYMOUS /tt TIMETABLE ONLY VIEW (No Login, No Personal Info) ─
+  if (isAnonymousTT) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#030712',
+        color: '#f3f4f6',
+        padding: '24px 16px',
+        fontFamily: "'Inter', system-ui, sans-serif",
+        WebkitFontSmoothing: 'antialiased',
+        maxWidth: 1280,
+        margin: '0 auto',
+      }}>
+        <WeeklyTimetable roomPrefs={roomPrefs} onToggleRoom={handleToggleRoom} />
+      </div>
+    );
+  }
 
   const TABS: { id: TabId; label: string; mobileLabel: string; icon: React.ElementType; badge?: number }[] = [
     { id: 'today',     label: "Today's Classes",         mobileLabel: 'Today',     icon: Calendar },
@@ -148,102 +174,89 @@ export const App: React.FC = () => {
           padding: '12px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          {/* Logo + Info */}
+          {/* Logo / Student Title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              width: 40, height: 40, borderRadius: 12,
+              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, boxShadow: '0 4px 14px rgba(79,70,229,0.35)',
-              flexShrink: 0,
+              boxShadow: '0 0 15px rgba(99,102,241,0.4)',
             }}>
-              📅
+              <Calendar size={22} style={{ color: '#ffffff' }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 800, fontSize: 16, color: '#f8fafc', fontFamily: 'Outfit, sans-serif' }}>
-                  IIT KGP Portal
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.01em' }}>
+                  {STUDENT_INFO.name}
                 </span>
                 <span style={{
-                  fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
-                  background: 'rgba(99,102,241,0.15)', color: '#a5b4fc',
+                  fontSize: 10, fontWeight: 800, fontFamily: 'monospace',
+                  background: 'rgba(99,102,241,0.15)', color: '#818cf8',
                   border: '1px solid rgba(99,102,241,0.3)',
-                  padding: '1px 8px', borderRadius: 20,
+                  padding: '1px 7px', borderRadius: 6,
                 }}>
-                  Autumn 2026-27
+                  {STUDENT_INFO.rollNo}
                 </span>
               </div>
-              <p style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 5, margin: '2px 0 0' }}>
-                <User size={11} style={{ color: '#6366f1' }} />
-                <span style={{ color: '#94a3b8', fontWeight: 500 }}>{STUDENT_INFO.name}</span>
-                <span style={{ fontFamily: 'monospace', color: '#475569' }}>({STUDENT_INFO.rollNo})</span>
+              <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>
+                {STUDENT_INFO.dept} · {STUDENT_INFO.session}
               </p>
             </div>
           </div>
 
-          {/* Controls */}
+          {/* Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* D1 Badge (lg only) */}
-            <div style={{
-              display: 'none',
-              alignItems: 'center', gap: 6,
-              background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(30,41,59,0.8)',
-              borderRadius: 10, padding: '6px 12px', fontSize: 11, color: '#64748b',
-            }} className="db-badge">
-              <Database size={12} style={{ color: '#4ade80' }} />
-              Cloudflare D1
-            </div>
-
             <button
               onClick={() => setIsEmailModalOpen(true)}
               style={{
-                background: 'rgba(30,41,59,0.8)', border: '1px solid rgba(51,65,85,0.8)',
-                borderRadius: 10, padding: '7px 12px',
-                color: '#cbd5e1', fontSize: 11, fontWeight: 600,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(51,65,85,0.6)',
+                borderRadius: 10, padding: '7px 12px', fontSize: 11, fontWeight: 700,
+                color: '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all 0.15s',
               }}
-              title="Gmail SMTP settings"
+              title="Configure Gmail SMTP Alerts"
             >
               <Mail size={14} style={{ color: '#818cf8' }} />
-              <span style={{ display: 'none' }} className="email-label">onlyforgdb@gmail.com</span>
+              <span className="desktop-only">SMTP Alerts</span>
             </button>
 
-            <button
-              onClick={() => {
-                if (isAuthenticated) {
+            <div style={{
+              background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)',
+              borderRadius: 10, padding: '7px 12px', fontSize: 11, fontWeight: 700,
+              color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Database size={13} />
+              <span className="desktop-only">D1 Synced</span>
+            </div>
+
+            {isAuthenticated && (
+              <button
+                onClick={() => {
                   logoutAuthSession();
                   setIsAuthenticated(false);
                   setIsAuthModalOpen(true);
-                } else {
-                  setIsAuthModalOpen(true);
-                }
-              }}
-              style={{
-                borderRadius: 10, padding: '7px 12px', fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                border: isAuthenticated ? '1px solid rgba(74,222,128,0.35)' : '1px solid rgba(99,102,241,0.6)',
-                background: isAuthenticated ? 'rgba(74,222,128,0.08)' : 'rgba(99,102,241,0.2)',
-                color: isAuthenticated ? '#4ade80' : '#a5b4fc',
-                transition: 'all 0.15s',
-              }}
-              title={isAuthenticated ? '10-Day session active. Click to lock.' : 'Unlock portal'}
-            >
-              <Lock size={14} />
-              <span>{isAuthenticated ? '✓ 10-Day Auth' : 'Unlock'}</span>
-            </button>
+                }}
+                style={{
+                  background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                  borderRadius: 10, padding: '7px 10px', fontSize: 11, fontWeight: 700,
+                  color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                  transition: 'all 0.15s',
+                }}
+                title="Lock Session"
+              >
+                <Lock size={13} />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Desktop Tabs Bar */}
         <div style={{
           maxWidth: 1280, margin: '0 auto',
           padding: '0 20px',
-          display: 'flex', alignItems: 'center',
+          display: 'flex', gap: 4,
           borderTop: '1px solid rgba(30,41,59,0.5)',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-        }}>
+        }} className="desktop-nav">
           {TABS.map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -252,25 +265,25 @@ export const App: React.FC = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  padding: '12px 16px',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '12px 18px',
                   fontSize: 12, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  borderBottom: active ? '2px solid #6366f1' : '2px solid transparent',
-                  borderTop: 'none', borderLeft: 'none', borderRight: 'none',
-                  background: active ? 'rgba(99,102,241,0.08)' : 'transparent',
                   color: active ? '#818cf8' : '#64748b',
-                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  background: active ? 'rgba(99,102,241,0.1)' : 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid #6366f1' : '2px solid transparent',
+                  cursor: 'pointer',
                   transition: 'all 0.15s',
                   position: 'relative',
                 }}
               >
-                <Icon size={15} />
-                <span className="tab-label">{tab.label}</span>
+                <Icon size={16} />
+                <span>{tab.label}</span>
                 {tab.badge !== undefined && tab.badge > 0 && (
                   <span style={{
                     background: '#f59e0b', color: '#0f0f0f',
                     fontSize: 9, fontWeight: 800,
-                    borderRadius: 20, padding: '1px 5px',
+                    padding: '1px 6px', borderRadius: 10,
                     fontFamily: 'monospace',
                   }}>
                     {tab.badge}
@@ -282,18 +295,22 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* ─── Main Content ─── */}
+      {/* ─── Main Content Body ─── */}
       <main style={{
-        flex: 1,
-        maxWidth: 1280, width: '100%',
+        maxWidth: 1280,
+        width: '100%',
         margin: '0 auto',
-        padding: '24px 20px 100px',
+        padding: '24px 20px 80px',
+        flex: 1,
+        boxSizing: 'border-box',
       }}>
         {activeTab === 'today' && (
           <TodaySummary
             roomPrefs={roomPrefs}
             reminders={reminders}
-            onAddReminderForSubject={() => setActiveTab('reminders')}
+            onAddReminderForSubject={() => {
+              setActiveTab('reminders');
+            }}
             onSendTestEmail={handleSendEmail}
           />
         )}
