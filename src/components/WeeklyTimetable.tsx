@@ -301,10 +301,10 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({ roomPrefs }) =
                 <div style={{
                   width: 50, height: 50, borderRadius: 14, background: selectedCourse.course.color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 16, fontFamily: 'monospace',
+                  color: '#fff', fontWeight: 800, fontSize: 14, fontFamily: 'Outfit, sans-serif',
                   boxShadow: `0 4px 16px ${selectedCourse.course.color}40`,
                 }}>
-                  {selectedCourse.slot.subjectCode.substring(0, 2)}
+                  {selectedCourse.course.shortName.substring(0, 3)}
                 </div>
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
@@ -326,7 +326,7 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({ roomPrefs }) =
             {/* Details table */}
             <div style={{ background: 'rgba(3,7,18,0.7)', border: '1px solid rgba(30,41,59,0.7)', borderRadius: 14, padding: '4px 16px', marginBottom: 20 }}>
               {[
-                { label: 'Course Code', value: <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#a5b4fc' }}>{selectedCourse.slot.subjectCode}</span> },
+                { label: 'Course Name', value: <span style={{ fontWeight: 800, color: '#a5b4fc' }}>{selectedCourse.course.shortName}</span> },
                 { label: 'L-T-P', value: selectedCourse.course.ltp },
                 { label: 'Credits', value: <span style={{ color: '#4ade80', fontWeight: 800 }}>{selectedCourse.course.credits}.0</span> },
                 { label: 'Time & Day', value: `${selectedCourse.slot.startTime} (${selectedCourse.slot.dayFull}) — ${selectedCourse.spanHours}h block` },

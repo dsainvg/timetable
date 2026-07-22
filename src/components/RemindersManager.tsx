@@ -409,7 +409,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                     {Object.keys(COURSES).map(code => {
                       const c = COURSES[code];
                       return (
-                        <option key={code} value={code}>{c?.shortName ? `${c.shortName} (${code})` : code}</option>
+                        <option key={code} value={code}>{c?.shortName || c?.name || code}</option>
                       );
                     })}
                   </select>
