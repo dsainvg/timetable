@@ -1,6 +1,7 @@
 export interface Course {
   code: string;
   name: string;
+  shortName: string;
   ltp: string;
   credits: number;
   type: string;
@@ -46,6 +47,7 @@ export const COURSES: Record<string, Course> = {
   CS61064: {
     code: 'CS61064',
     name: 'HIGH PERFORMANCE PARALLEL PROGRAMMING',
+    shortName: 'HPPC',
     ltp: '3-1-0',
     credits: 4,
     type: 'Depth Elective I',
@@ -55,6 +57,7 @@ export const COURSES: Record<string, Course> = {
   CS39001: {
     code: 'CS39001',
     name: 'COMPUTER ORGANIZATION LABORATORY',
+    shortName: 'Comp Org Lab',
     ltp: '0-0-6',
     credits: 4,
     type: 'Depth CORE XXXIV',
@@ -64,26 +67,29 @@ export const COURSES: Record<string, Course> = {
   CS31005: {
     code: 'CS31005',
     name: 'ALGORITHMS -II',
+    shortName: 'Algo 2',
     ltp: '3-1-0',
     credits: 4,
     type: 'Depth CORE XXXII',
     color: '#3b82f6', // Blue
     rooms: ['NC231', 'NC232'],
-    defaultRoom: 'NC231', // User explicitly specified NC231
+    defaultRoom: 'NC231',
   },
   CS31007: {
     code: 'CS31007',
     name: 'COMPUTER ORGANIZATION & ARCHITECTURE',
+    shortName: 'Comp Org',
     ltp: '3-1-0',
     credits: 4,
     type: 'Depth CORE XXXIII',
     color: '#06b6d4', // Cyan
     rooms: ['NC241', 'NC244'],
-    defaultRoom: 'NC241', // User explicitly specified NC241
+    defaultRoom: 'NC241',
   },
   AI60213: {
     code: 'AI60213',
     name: 'FOUNDATION OF LARGE LANGUAGE MODELS',
+    shortName: 'FLLM',
     ltp: '3-0-0',
     credits: 3,
     type: 'Breadth Elective II',
@@ -93,16 +99,18 @@ export const COURSES: Record<string, Course> = {
   CS31003: {
     code: 'CS31003',
     name: 'COMPILERS',
+    shortName: 'Compilers',
     ltp: '3-0-0',
     credits: 3,
     type: 'Depth CORE XXX',
     color: '#f59e0b', // Amber
     rooms: ['NC241', 'NC242'],
-    defaultRoom: 'NC241', // User explicitly specified NC241
+    defaultRoom: 'NC241',
   },
   CS39003: {
     code: 'CS39003',
     name: 'COMPILERS LABORATORY',
+    shortName: 'Compilers Lab',
     ltp: '0-0-3',
     credits: 2,
     type: 'Depth CORE XXXI',
@@ -126,7 +134,6 @@ export const AFTERNOON_SLOTS = [
 ];
 
 export const TIME_SLOTS = [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
-
 
 export const SCHEDULE_GRID: ClassSlot[] = [
   // MONDAY

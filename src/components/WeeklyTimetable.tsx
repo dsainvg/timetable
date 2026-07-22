@@ -192,11 +192,11 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({ roomPrefs }) =
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3, marginBottom: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
                                   <span style={{
-                                    fontSize: 9, fontWeight: 800, fontFamily: 'monospace',
+                                    fontSize: 10, fontWeight: 800, fontFamily: 'Outfit, sans-serif',
                                     background: course?.color || '#6366f1',
-                                    color: '#fff', borderRadius: 4, padding: '1px 4px',
+                                    color: '#fff', borderRadius: 4, padding: '1px 5px',
                                     whiteSpace: 'nowrap',
-                                  }}>{slot.subjectCode}</span>
+                                  }}>{course?.shortName || slot.subjectCode}</span>
                                   {isMulti && (
                                     <span style={{
                                       fontSize: 8, fontWeight: 800,

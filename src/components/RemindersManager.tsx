@@ -255,11 +255,11 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   </button>
 
                   <span style={{
-                    fontSize:10, fontWeight:800, fontFamily:'monospace',
+                    fontSize:11, fontWeight:800, fontFamily:'Outfit, sans-serif',
                     background: course?.color || '#6366f1',
-                    color:'#fff', borderRadius:6, padding:'2px 7px',
+                    color:'#fff', borderRadius:6, padding:'2px 8px',
                     opacity: isDone ? 0.5 : 1,
-                  }}>{rem.subject_code}</span>
+                  }}>{course?.shortName || rem.subject_code}</span>
 
                   <span style={{
                     fontSize:10, fontWeight:700,
@@ -406,9 +406,12 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                 <div>
                   <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Subject</label>
                   <select value={formSubject} onChange={e => setFormSubject(e.target.value)} style={{ ...inputStyle, cursor:'pointer' }}>
-                    {Object.keys(COURSES).map(code => (
-                      <option key={code} value={code}>{code}</option>
-                    ))}
+                    {Object.keys(COURSES).map(code => {
+                      const c = COURSES[code];
+                      return (
+                        <option key={code} value={code}>{c?.shortName ? `${c.shortName} (${code})` : code}</option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>

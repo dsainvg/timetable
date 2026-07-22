@@ -25,6 +25,22 @@ function json(data: any, status = 200) {
   });
 }
 
+// ─── COURSE NAME & SHORT FORM MAPPING ────────────────────────────────
+const COURSE_NAME_MAP: Record<string, { shortName: string; fullName: string }> = {
+  CS61064: { shortName: 'HPPC', fullName: 'High Performance Parallel Programming' },
+  CS39001: { shortName: 'Comp Org Lab', fullName: 'Computer Organization Laboratory' },
+  CS31005: { shortName: 'Algo 2', fullName: 'Algorithms II' },
+  CS31007: { shortName: 'Comp Org', fullName: 'Computer Organization & Architecture' },
+  AI60213: { shortName: 'FLLM', fullName: 'Foundations of Large Language Models' },
+  CS31003: { shortName: 'Compilers', fullName: 'Compilers' },
+  CS39003: { shortName: 'Compilers Lab', fullName: 'Compilers Laboratory' },
+};
+
+function getSubjectDisplayName(code: string): string {
+  const mapped = COURSE_NAME_MAP[code];
+  return mapped ? `${mapped.shortName}` : code;
+}
+
 // ─── RICH HTML EMAIL TEMPLATE BUILDER ────────────────────────────────
 function buildHtmlEmail(options: {
   title: string;
@@ -53,9 +69,6 @@ function buildHtmlEmail(options: {
     .badge-high { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
     .badge-medium { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); }
     .badge-low { background: rgba(74,222,128,0.2); color: #4ade80; border: 1px solid rgba(74,222,128,0.4); }
-    .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .table th { background: #1e293b; color: #818cf8; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; }
-    .table td { padding: 12px; border-bottom: 1px solid rgba(51,65,85,0.5); font-size: 13px; color: #e2e8f0; }
     .footer { border-top: 1px solid #1e293b; padding: 18px 28px; text-align: center; font-size: 11px; color: #64748b; background: #0b0f19; }
   </style>
 </head>
@@ -211,7 +224,6 @@ async function dispatchEmail(env: Env, payload: { recipient: string; subject: st
     };
   }
 
-  // Build HTML email if not provided directly
   const htmlContent = payload.html || buildHtmlEmail({
     title: payload.title || payload.subject || 'IIT KGP Timetable Notification',
     subtitle: payload.subtitle || 'Autumn Semester 2026-2027',
@@ -297,13 +309,16 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
 
   const taskList = (dueTasks || []) as any[];
   const tasksHtml = taskList.length > 0
-    ? taskList.map(t => `
-        <div class="card">
-          <div class="card-title">📌 [${t.subject_code}] ${t.title}</div>
-          <div class="card-sub">Due: ${t.due_time || '23:59'} • ${t.description || 'No additional details'}</div>
-          <span class="badge badge-${t.priority || 'high'}">${(t.priority || 'HIGH').toUpperCase()}</span>
-        </div>
-      `).join('')
+    ? taskList.map(t => {
+        const subName = getSubjectDisplayName(t.subject_code);
+        return `
+          <div class="card">
+            <div class="card-title">📌 [${subName}] ${t.title}</div>
+            <div class="card-sub">Due: ${t.due_time || '23:59'} • ${t.description || 'No additional details'}</div>
+            <span class="badge badge-${t.priority || 'high'}">${(t.priority || 'HIGH').toUpperCase()}</span>
+          </div>
+        `;
+      }).join('')
     : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks due today.</div></div>';
 
   const html = buildHtmlEmail({
@@ -353,11 +368,17 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
   const pendingList = (pendingItems || []) as any[];
 
   const doneHtml = doneList.length > 0
-    ? doneList.map(t => `<div class="card" style="border-color:rgba(74,222,128,0.3);"><div class="card-title" style="color:#4ade80;">✓ [${t.subject_code}] ${t.title}</div></div>`).join('')
+    ? doneList.map(t => {
+        const subName = getSubjectDisplayName(t.subject_code);
+        return `<div class="card" style="border-color:rgba(74,222,128,0.3);"><div class="card-title" style="color:#4ade80;">✓ [${subName}] ${t.title}</div></div>`;
+      }).join('')
     : '<div class="card"><div class="card-sub">No completed tasks recorded this week.</div></div>';
 
   const pendingHtml = pendingList.length > 0
-    ? pendingList.map(t => `<div class="card" style="border-color:rgba(129,140,248,0.3);"><div class="card-title">⏳ [${t.subject_code}] ${t.title}</div><div class="card-sub">Due: ${t.due_date} ${t.due_time}</div></div>`).join('')
+    ? pendingList.map(t => {
+        const subName = getSubjectDisplayName(t.subject_code);
+        return `<div class="card" style="border-color:rgba(129,140,248,0.3);"><div class="card-title">⏳ [${subName}] ${t.title}</div><div class="card-sub">Due: ${t.due_date} ${t.due_time}</div></div>`;
+      }).join('')
     : '<div class="card"><div class="card-sub">No upcoming pending tasks!</div></div>';
 
   const html = buildHtmlEmail({
@@ -402,21 +423,22 @@ async function processHourlyReminders(env: Env, recipient: string) {
 
     if (check.results && check.results.length > 0) continue;
 
+    const subName = getSubjectDisplayName(rem.subject_code);
     const html = buildHtmlEmail({
       title: `⏰ Reminder: ${rem.title}`,
-      subtitle: `Subject: ${rem.subject_code} • Priority: ${rem.priority.toUpperCase()}`,
+      subtitle: `Subject: ${subName} • Priority: ${rem.priority.toUpperCase()}`,
       accentColor: '#e11d48',
       contentHtml: `
         <div class="card">
           <div class="card-title">${rem.title}</div>
-          <div class="card-sub">Due: ${rem.due_date} at ${rem.due_time}</div>
+          <div class="card-sub">Course: ${subName} • Due: ${rem.due_date} at ${rem.due_time}</div>
           <p style="margin:10px 0 0; color:#e2e8f0; font-size:13px;">${rem.description || 'No additional details.'}</p>
           <span class="badge badge-${rem.priority || 'high'}">${(rem.priority || 'HIGH').toUpperCase()}</span>
         </div>
       `,
     });
 
-    const subject = `⏰ [Reminder Alert] ${rem.title} (${rem.subject_code})`;
+    const subject = `⏰ [Reminder Alert] ${rem.title} (${subName})`;
     await dispatchEmail(env, { recipient, subject, html });
 
     const logId = 'cron-log-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);

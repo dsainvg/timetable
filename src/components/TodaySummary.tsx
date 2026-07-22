@@ -289,11 +289,11 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
                       <span style={{
-                        fontSize:11, fontWeight:800, fontFamily:'monospace',
+                        fontSize:11, fontWeight:800, fontFamily:'Outfit, sans-serif',
                         padding:'2px 8px', borderRadius:6, color:'#fff',
                         background: course?.color || '#6366f1',
                         opacity: st.state === 'done' ? 0.6 : 1,
-                      }}>{slot.subjectCode}</span>
+                      }}>{course?.shortName || slot.subjectCode}</span>
                       <span style={{ fontSize:10, color:'#475569', background:'rgba(30,41,59,0.7)', borderRadius:6, padding:'1px 6px', textTransform:'uppercase', letterSpacing:'0.04em' }}>
                         {course?.type}
                       </span>
