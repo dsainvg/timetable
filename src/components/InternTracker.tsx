@@ -136,13 +136,16 @@ export const InternTracker: React.FC = () => {
 
   const stats = useMemo(() => ({
     total: interns.length,
-    applied: interns.filter(i => ['applied','oa_bad','oa_good','shortlisted','interview_good','offered'].includes(i.myStatus)).length,
+    applied: interns.filter(i => i.myStatus !== 'not_applied').length,
+    no_oa: interns.filter(i => i.myStatus === 'applied').length,
     oa_good: interns.filter(i => i.myStatus === 'oa_good').length,
-    offer: interns.filter(i => i.myStatus === 'offered').length,
-    interview: interns.filter(i => i.myStatus === 'interview_good').length,
+    oa_bad: interns.filter(i => i.myStatus === 'oa_bad').length,
     shortlisted: interns.filter(i => i.myStatus === 'shortlisted').length,
-    sorted: interns.filter(i => i.sortingDone).length,
+    interviewed: interns.filter(i => i.myStatus === 'interview_good').length,
+    offer: interns.filter(i => i.myStatus === 'offered').length,
+    non_applied: interns.filter(i => i.myStatus === 'not_applied').length,
     rejected: interns.filter(i => i.myStatus === 'rejected').length,
+    sorted: interns.filter(i => i.sortingDone).length,
   }), [interns]);
 
   const filterCounts = useMemo(() => {
@@ -608,11 +611,13 @@ export const InternTracker: React.FC = () => {
           }}>
             {[
               { l: 'Applied', v: stats.applied, c: '#818cf8' },
+              { l: 'NO-OA', v: stats.no_oa, c: '#a5b4fc' },
               { l: 'OA Good', v: stats.oa_good, c: '#10b981' },
+              { l: 'OA Bad', v: stats.oa_bad, c: '#ef4444' },
               { l: 'Shortlisted', v: stats.shortlisted, c: '#38bdf8' },
-              { l: 'Interview', v: stats.interview, c: '#fb923c' },
+              { l: 'Interviewed', v: stats.interviewed, c: '#fb923c' },
               { l: 'Offer', v: stats.offer, c: '#4ade80' },
-              { l: 'Sorted ✓', v: stats.sorted > 0 ? '1' : '—', c: '#38bdf8' },
+              { l: 'Non Applied', v: stats.non_applied, c: '#64748b' },
               { l: 'Rejected', v: stats.rejected, c: '#f87171' },
             ].map(s => (
               <div key={s.l} style={{
