@@ -319,28 +319,48 @@ async function ensureTables(db: any) {
       `),
     ]);
 
-    // Optimize: check if table is already seeded before batching inserts
-    const countCheck = await db.prepare("SELECT COUNT(*) as count FROM intern_roles").first("count");
-    if (countCheck === 0) {
-      // Build a single batch query for all 72 roles (1 RTT total)
-      const statements = INTERN_COMPANIES_DEFAULT.map(r => {
-        return db.prepare(`
-          INSERT INTO intern_roles (
-            id, company, ctc, currency, apply_status, resume_start, resume_end, interview_date,
-            position_note, sorting_done, my_status, notes, jnf_url, jnf_id, com_id,
-            cgpa_cutoff, stipend, allowed_depts, allowed_degrees, job_description,
-            selection_process, skills_required, duration, location, positions, tentative_start, application_status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          r.id, r.company, r.ctc, r.currency, r.applyStatus, r.resumeStart, r.resumeEnd, r.interviewDate || '',
-          r.positionNote || '', r.sortingDone ? 1 : 0, r.myStatus, r.notes || '', r.jnfUrl || '', r.jnfId || '', r.comId || '',
-          r.cgpaCutoff || '', r.stipend || '', JSON.stringify(r.allowedDepts || []), JSON.stringify(r.allowedDegrees || []),
-          r.jobDescription || '', r.selectionProcess || '', r.skillsRequired || '', r.duration || '', r.location || '',
-          r.positions || '', r.tentativeStart || '', r.applicationStatus || ''
-        );
-      });
-      await db.batch(statements);
-    }
+    // Build a single batch query for all 72 roles (1 RTT total) to update static details
+    const statements = INTERN_COMPANIES_DEFAULT.map(r => {
+      return db.prepare(`
+        INSERT INTO intern_roles (
+          id, company, ctc, currency, apply_status, resume_start, resume_end, interview_date,
+          position_note, sorting_done, my_status, notes, jnf_url, jnf_id, com_id,
+          cgpa_cutoff, stipend, allowed_depts, allowed_degrees, job_description,
+          selection_process, skills_required, duration, location, positions, tentative_start, application_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          company = excluded.company,
+          ctc = excluded.ctc,
+          currency = excluded.currency,
+          apply_status = excluded.apply_status,
+          resume_start = excluded.resume_start,
+          resume_end = excluded.resume_end,
+          position_note = excluded.position_note,
+          jnf_url = excluded.jnf_url,
+          jnf_id = excluded.jnf_id,
+          com_id = excluded.com_id,
+          cgpa_cutoff = excluded.cgpa_cutoff,
+          stipend = excluded.stipend,
+          allowed_depts = excluded.allowed_depts,
+          allowed_degrees = excluded.allowed_degrees,
+          job_description = excluded.job_description,
+          selection_process = excluded.selection_process,
+          skills_required = excluded.skills_required,
+          duration = excluded.duration,
+          location = excluded.location,
+          positions = excluded.positions,
+          tentative_start = excluded.tentative_start,
+          application_status = excluded.application_status,
+          my_status = CASE WHEN intern_roles.my_status = 'not_applied' THEN excluded.my_status ELSE intern_roles.my_status END
+      `).bind(
+        r.id, r.company, r.ctc, r.currency, r.applyStatus, r.resumeStart, r.resumeEnd, r.interviewDate || '',
+        r.positionNote || '', r.sortingDone ? 1 : 0, r.myStatus, r.notes || '', r.jnfUrl || '', r.jnfId || '', r.comId || '',
+        r.cgpaCutoff || '', r.stipend || '', JSON.stringify(r.allowedDepts || []), JSON.stringify(r.allowedDegrees || []),
+        r.jobDescription || '', r.selectionProcess || '', r.skillsRequired || '', r.duration || '', r.location || '',
+        r.positions || '', r.tentativeStart || '', r.applicationStatus || ''
+      );
+    });
+    await db.batch(statements);
     isDbInitialized = true;
   } catch (err) {
     console.error('D1 Table Auto-Init Warning:', err);
