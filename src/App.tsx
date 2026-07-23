@@ -59,10 +59,10 @@ export const App: React.FC = () => {
     const authState = checkAuthSession();
     if (authState.isAuthenticated) {
       setIsAuthenticated(true);
+      loadData();
     } else {
       setIsAuthModalOpen(true);
     }
-    loadData();
   }, [isAnonymousTT]);
 
   const loadData = async () => {
@@ -120,6 +120,30 @@ export const App: React.FC = () => {
         margin: '0 auto',
       }}>
         <WeeklyTimetable roomPrefs={roomPrefs} onToggleRoom={handleToggleRoom} />
+      </div>
+    );
+  }
+
+  // ─── DOM GATEKEEPER FOR UNAUTHENTICATED USERS (No Protected DOM Rendered) ───
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#030712',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}>
+        <AuthModal
+          isOpen={true}
+          onAuthenticated={() => {
+            setIsAuthenticated(true);
+            setIsAuthModalOpen(false);
+            loadData();
+            showToast('Authenticated! 10-day session active.');
+          }}
+        />
       </div>
     );
   }

@@ -71,6 +71,27 @@ function createTransporter(pass = GMAIL_APP_PASSWORD) {
   });
 }
 
+function generateSessionToken(expiresAt) {
+  const payload = JSON.stringify({ rollNo: '24cs10097', expiresAt, salt: 'kgp_timetable_2026' });
+  return 'tt_token_' + Buffer.from(payload).toString('base64').replace(/=/g, '');
+}
+
+function validateSessionToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.substring(7).trim();
+  if (!token.startsWith('tt_token_')) return false;
+  try {
+    const rawB64 = token.replace('tt_token_', '');
+    const decoded = JSON.parse(Buffer.from(rawB64, 'base64').toString('utf8'));
+    if (decoded && decoded.expiresAt && decoded.expiresAt > Date.now()) {
+      return true;
+    }
+  } catch (e) {
+    return false;
+  }
+  return false;
+}
+
 // Health endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -79,6 +100,35 @@ app.get('/api/health', (req, res) => {
     d1_binding: 'DB (timetable: 6b53ce94-8279-4643-bf1c-b35715815fe6)',
     sender_email: SENDER_EMAIL,
   });
+});
+
+// Auth endpoint
+app.post('/api/verify-auth', (req, res) => {
+  const { password } = req.body || {};
+  const serverPass = process.env.APP_PASSWORD || '24cs10097';
+  if (password && password.trim() === serverPass.trim()) {
+    const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
+    const token = generateSessionToken(expiresAt);
+    return res.json({
+      success: true,
+      token,
+      expiresAt,
+      message: 'Authentication successful. Access granted for 10 days.',
+    });
+  }
+  return res.status(401).json({ success: false, message: 'Invalid security passcode.' });
+});
+
+// Middleware for protected routes
+app.use((req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/api/verify-auth') {
+    return next();
+  }
+  const authHeader = req.headers.authorization;
+  if (!validateSessionToken(authHeader)) {
+    return res.status(401).json({ success: false, error: 'Unauthorized. Valid authentication token required.' });
+  }
+  next();
 });
 
 // GET reminders

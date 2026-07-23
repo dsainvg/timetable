@@ -64,6 +64,24 @@ const INITIAL_REMINDERS: Reminder[] = [
   },
 ];
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.token) {
+        headers['Authorization'] = `Bearer ${parsed.token}`;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading auth headers:', e);
+  }
+  return headers;
+}
+
 // ─── AUTHENTICATION (Server-Side Verified, 10 Days Expiry) ───────
 export function checkAuthSession(): { isAuthenticated: boolean; expiresAt: number | null } {
   try {
@@ -82,7 +100,7 @@ export function checkAuthSession(): { isAuthenticated: boolean; expiresAt: numbe
 
 /**
  * Verifies passcode with backend API (/api/verify-auth).
- * NEVER validates plaintext password in client-side JS bundle!
+ * Server returns authenticated token and expiration.
  */
 export async function verifyAuthPasscode(password: string): Promise<{ success: boolean; message: string }> {
   try {
@@ -98,7 +116,7 @@ export async function verifyAuthPasscode(password: string): Promise<{ success: b
       const expiresAt = data.expiresAt || (Date.now() + 10 * 24 * 60 * 60 * 1000);
       localStorage.setItem(
         LOCAL_STORAGE_KEY_AUTH,
-        JSON.stringify({ authenticated: true, expiresAt })
+        JSON.stringify({ authenticated: true, token: data.token, expiresAt })
       );
       return { success: true, message: data.message || 'Access granted for 10 days.' };
     }
@@ -107,19 +125,10 @@ export async function verifyAuthPasscode(password: string): Promise<{ success: b
       success: false,
       message: data.message || 'Invalid security passcode.',
     };
-  } catch (err) {
-    // Offline / Dev fallback mode
-    if (password.trim() === '24cs10097') {
-      const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
-      localStorage.setItem(
-        LOCAL_STORAGE_KEY_AUTH,
-        JSON.stringify({ authenticated: true, expiresAt })
-      );
-      return { success: true, message: 'Access granted (Local Mode).' };
-    }
+  } catch (err: any) {
     return {
       success: false,
-      message: 'Failed to verify authentication with server.',
+      message: err.message || 'Failed to connect to authentication server.',
     };
   }
 }
@@ -130,11 +139,14 @@ export function logoutAuthSession(): void {
 
 // ─── ROOM PREFERENCES ─────────────────────────────────────────────
 export async function getRoomPreferences(): Promise<Record<string, string>> {
+  if (!checkAuthSession().isAuthenticated) return {};
   try {
-    const res = await fetch('/api/rooms');
+    const res = await fetch('/api/rooms', { headers: getAuthHeaders() });
     if (res.ok) {
       const data = await res.json();
       if (data && Object.keys(data).length > 0) return data;
+    } else if (res.status === 401) {
+      return {};
     }
   } catch {
     // API server fallback
@@ -158,7 +170,7 @@ export async function saveRoomPreference(subjectCode: string, room: string): Pro
   try {
     await fetch('/api/rooms', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ subjectCode, room }),
     });
   } catch { /* fallback */ }
@@ -168,11 +180,14 @@ export async function saveRoomPreference(subjectCode: string, room: string): Pro
 
 // ─── REMINDERS ───────────────────────────────────────────────────
 export async function getReminders(): Promise<Reminder[]> {
+  if (!checkAuthSession().isAuthenticated) return [];
   try {
-    const res = await fetch('/api/reminders');
+    const res = await fetch('/api/reminders', { headers: getAuthHeaders() });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) return data;
+    } else if (res.status === 401) {
+      return [];
     }
   } catch { /* fallback */ }
 
@@ -207,7 +222,7 @@ export async function saveReminder(reminder: Omit<Reminder, 'id' | 'created_at'>
   try {
     await fetch('/api/reminders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(reminder),
     });
   } catch { /* fallback */ }
@@ -221,7 +236,10 @@ export async function deleteReminder(id: string): Promise<Reminder[]> {
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(updated));
 
   try {
-    await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+    await fetch(`/api/reminders/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
   } catch { /* fallback */ }
 
   return updated;
@@ -235,7 +253,10 @@ export async function toggleReminderStatus(id: string): Promise<Reminder[]> {
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(updated));
 
   try {
-    await fetch(`/api/reminders/${id}/toggle`, { method: 'PUT' });
+    await fetch(`/api/reminders/${id}/toggle`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+    });
   } catch { /* fallback */ }
 
   return updated;
@@ -251,7 +272,7 @@ export async function sendEmailNotification(payload: {
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const data = await res.json();

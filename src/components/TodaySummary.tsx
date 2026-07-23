@@ -3,7 +3,7 @@ import {
   Clock, MapPin, BookOpen, CheckCircle2,
   BellRing, Sparkles, CalendarDays, Send, BadgeAlert,
 } from 'lucide-react';
-import { SCHEDULE_GRID, COURSES, ClassSlot } from '../data/timetableData';
+import { SCHEDULE_GRID, COURSES } from '../data/timetableData';
 import { Reminder } from '../services/api';
 
 interface TodaySummaryProps {
@@ -27,6 +27,50 @@ function parseTime(timeStr: string): number {
   return hours * 60 + minutes;
 }
 
+export interface MergedClassSlot {
+  id: string;
+  day: DayName;
+  subjectCode: string;
+  startTime: string;
+  endTime: string;
+  defaultRoom: string;
+  multiRooms?: string[];
+  slotsCount: number;
+}
+
+function getMergedDaySlots(day: DayName): MergedClassSlot[] {
+  const rawSlots = SCHEDULE_GRID.filter(s => s.day === day)
+    .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+
+  const merged: MergedClassSlot[] = [];
+
+  for (const slot of rawSlots) {
+    const last = merged[merged.length - 1];
+    if (
+      last &&
+      last.subjectCode === slot.subjectCode &&
+      parseTime(slot.startTime) <= parseTime(last.endTime) + 15
+    ) {
+      last.endTime = slot.endTime;
+      last.slotsCount += slot.labSpan || 1;
+      last.id += `-${slot.id}`;
+    } else {
+      merged.push({
+        id: slot.id,
+        day: slot.day,
+        subjectCode: slot.subjectCode,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        defaultRoom: slot.defaultRoom,
+        multiRooms: slot.multiRooms,
+        slotsCount: slot.labSpan || 1,
+      });
+    }
+  }
+
+  return merged;
+}
+
 export const TodaySummary: React.FC<TodaySummaryProps> = ({
   roomPrefs, reminders, onAddReminderForSubject, onSendTestEmail,
 }) => {
@@ -41,15 +85,14 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const daySlots = SCHEDULE_GRID.filter(s => s.day === selectedDay)
-    .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+  const daySlots = getMergedDaySlots(selectedDay);
 
-  const getRoom = (slot: ClassSlot) => roomPrefs[slot.subjectCode] || slot.defaultRoom;
+  const getRoom = (slot: MergedClassSlot) => roomPrefs[slot.subjectCode] || slot.defaultRoom;
 
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const isToday = DAY_TO_IDX[selectedDay] === now.getDay();
 
-  const getStatus = (slot: ClassSlot) => {
+  const getStatus = (slot: MergedClassSlot) => {
     const s = parseTime(slot.startTime), e = parseTime(slot.endTime);
     if (!isToday) return { state: 'scheduled', label: 'Scheduled', color: '#475569' };
     if (nowMin >= s && nowMin <= e) {
@@ -195,7 +238,7 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', borderTop:'1px solid rgba(30,41,59,0.6)', paddingTop:18 }}>
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             {DAY_NAMES.map(day => {
-              const count = SCHEDULE_GRID.filter(s => s.day === day).length;
+              const count = getMergedDaySlots(day).length;
               const active = selectedDay === day;
               const isTodayDay = DAY_TO_IDX[day] === now.getDay();
               return (
@@ -287,7 +330,7 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
                 {/* Header row */}
                 <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:10, marginTop:4 }}>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5, flexWrap:'wrap' }}>
                       <span style={{
                         fontSize:11, fontWeight:800, fontFamily:'Outfit, sans-serif',
                         padding:'2px 8px', borderRadius:6, color:'#fff',
@@ -297,6 +340,11 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
                       <span style={{ fontSize:10, color:'#475569', background:'rgba(30,41,59,0.7)', borderRadius:6, padding:'1px 6px', textTransform:'uppercase', letterSpacing:'0.04em' }}>
                         {course?.type}
                       </span>
+                      {slot.slotsCount > 1 && (
+                        <span style={{ fontSize:10, color:'#a5b4fc', background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.3)', borderRadius:6, padding:'1px 6px', fontWeight:700 }}>
+                          {slot.slotsCount}h Block
+                        </span>
+                      )}
                     </div>
                     <h3 style={{
                       fontSize:14, fontWeight:800, color: st.state === 'done' ? '#475569' : '#f1f5f9',

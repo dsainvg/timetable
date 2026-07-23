@@ -289,9 +289,28 @@ async function ensureTables(db: any) {
   }
 }
 
-// ─── DAILY MORNING SUMMARY (7:00 AM) ──────────────────────────────────
+// ─── IST (UTC+5:30) TIME HELPER ──────────────────────────────────────
+function getISTDate(date = new Date()) {
+  const istMillis = date.getTime() + (5 * 60 + 30) * 60 * 1000;
+  const ist = new Date(istMillis);
+  const year = ist.getUTCFullYear();
+  const month = ist.getUTCMonth() + 1;
+  const day = ist.getUTCDate();
+  const hours = ist.getUTCHours();
+  const minutes = ist.getUTCMinutes();
+  const dayOfWeek = ist.getUTCDay();
+
+  const mm = month < 10 ? `0${month}` : `${month}`;
+  const dd = day < 10 ? `0${day}` : `${day}`;
+  const dateString = `${year}-${mm}-${dd}`;
+
+  return { year, month, day, hours, minutes, dayOfWeek, dateString };
+}
+
+// ─── DAILY MORNING SUMMARY (6:00 AM IST) ──────────────────────────────
 async function sendDailyMorningSummary(env: Env, recipient: string) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const ist = getISTDate();
+  const todayStr = ist.dateString;
   const summaryKey = `daily-summary-${todayStr}`;
 
   const check = await env.DB.prepare(
@@ -299,7 +318,7 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
   ).bind(summaryKey, recipient).all();
 
   if (check.results && check.results.length > 0) {
-    console.log(`[DAILY CRON] Summary already sent for ${todayStr}. Skipping.`);
+    console.log(`[DAILY CRON] Summary already sent for ${todayStr} (IST). Skipping.`);
     return;
   }
 
@@ -322,12 +341,12 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
     : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks due today.</div></div>';
 
   const html = buildHtmlEmail({
-    title: '🌅 Daily Morning Summary',
+    title: '🌅 Daily Morning Summary (6:00 AM IST)',
     subtitle: `Date: ${todayStr} • Roll No: 24CS10097`,
     accentColor: '#6366f1',
     contentHtml: `
       <h3 style="color:#818cf8; margin-top:0; font-size:16px;">Good Morning!</h3>
-      <p style="color:#94a3b8; font-size:13px;">Here is your daily schedule and task breakdown for today:</p>
+      <p style="color:#94a3b8; font-size:13px;">Here is your daily schedule and task breakdown for today (${todayStr}):</p>
       
       <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks Due Today:</h4>
       ${tasksHtml}
@@ -342,9 +361,10 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
   ).bind('log-' + Date.now(), summaryKey, recipient).run();
 }
 
-// ─── SUNDAY WEEKLY SUMMARY (8:00 AM SUNDAY) ───────────────────────────
+// ─── SUNDAY WEEKLY SUMMARY (6:00 AM IST SUNDAY) ───────────────────────
 async function sendSundayWeeklySummary(env: Env, recipient: string) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const ist = getISTDate();
+  const todayStr = ist.dateString;
   const summaryKey = `sunday-weekly-summary-${todayStr}`;
 
   const check = await env.DB.prepare(
@@ -352,7 +372,7 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
   ).bind(summaryKey, recipient).all();
 
   if (check.results && check.results.length > 0) {
-    console.log(`[SUNDAY CRON] Weekly summary already sent for ${todayStr}. Skipping.`);
+    console.log(`[SUNDAY CRON] Weekly summary already sent for ${todayStr} (IST). Skipping.`);
     return;
   }
 
@@ -382,7 +402,7 @@ async function sendSundayWeeklySummary(env: Env, recipient: string) {
     : '<div class="card"><div class="card-sub">No upcoming pending tasks!</div></div>';
 
   const html = buildHtmlEmail({
-    title: '📊 Sunday Weekly Summary & Progress Report',
+    title: '📊 Sunday Weekly Summary & Progress Report (6:00 AM IST)',
     subtitle: `Week of ${todayStr} • IIT Kharagpur`,
     accentColor: '#7c3aed',
     contentHtml: `
@@ -481,6 +501,27 @@ export default {
         return json({ error: 'Asset binding not configured' }, 500);
       }
 
+function generateSessionToken(expiresAt: number): string {
+  const payload = JSON.stringify({ rollNo: '24cs10097', expiresAt, salt: 'kgp_timetable_2026' });
+  return 'tt_token_' + btoa(payload).replace(/=/g, '');
+}
+
+function validateSessionToken(authHeader: string | null): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.substring(7).trim();
+  if (!token.startsWith('tt_token_')) return false;
+  try {
+    const rawB64 = token.replace('tt_token_', '');
+    const decoded = JSON.parse(atob(rawB64));
+    if (decoded && decoded.expiresAt && decoded.expiresAt > Date.now()) {
+      return true;
+    }
+  } catch (e) {
+    return false;
+  }
+  return false;
+}
+
       // ─── 2. API ROUTES (/api/*) ──────────────────────────────────
       if (env.DB) {
         await ensureTables(env.DB);
@@ -493,14 +534,22 @@ export default {
 
         if (clientPass === serverSecret) {
           const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
+          const token = generateSessionToken(expiresAt);
           return json({
             success: true,
+            token,
             expiresAt,
             message: 'Authentication successful. Access granted for 10 days.',
           });
         } else {
           return json({ success: false, message: 'Invalid security passcode.' }, 401);
         }
+      }
+
+      // Authorization Gatekeeper for protected API routes
+      const authHeader = request.headers.get('Authorization');
+      if (!validateSessionToken(authHeader)) {
+        return json({ success: false, error: 'Unauthorized. Valid authentication token required.' }, 401);
       }
 
       if (path === '/api/reminders' && request.method === 'GET') {
@@ -692,9 +741,10 @@ export default {
   async scheduled(event: any, env: Env, _ctx: any): Promise<void> {
     const cron = event.cron || '';
     const now = new Date();
+    const ist = getISTDate(now);
     const recipient = env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
 
-    console.log(`[CRON TRIGGER] ${cron} fired at ${now.toISOString()}`);
+    console.log(`[CRON TRIGGER] ${cron} fired at ${now.toISOString()} (IST: ${ist.dateString} ${ist.hours}:${ist.minutes})`);
 
     if (!env.DB) {
       console.log('[CRON] DB binding not available. Skipping D1 checks.');
@@ -704,12 +754,14 @@ export default {
     try {
       await ensureTables(env.DB);
 
-      if (cron === '0 8 * * 0' || (now.getDay() === 0 && now.getHours() === 8)) {
+      // Sunday Morning Summary at 6:00 AM IST (dayOfWeek === 0, hours === 6)
+      if (ist.dayOfWeek === 0 && ist.hours === 6) {
         await sendSundayWeeklySummary(env, recipient);
         return;
       }
 
-      if (cron === '0 7 * * *' || now.getHours() === 7) {
+      // Daily Morning Summary at 6:00 AM IST (hours === 6)
+      if (ist.hours === 6) {
         await sendDailyMorningSummary(env, recipient);
         return;
       }
