@@ -127,6 +127,7 @@ body {
 @media (max-width: 767px) {
   /* Show mobile nav, hide desktop tab labels */
   .tab-label { display: none; }
+  .hide-mobile-label { display: none !important; }
 }
 
 /* ─── Desktop: show db badge + email label ─── */

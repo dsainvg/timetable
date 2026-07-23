@@ -163,9 +163,9 @@ export const InternTracker: React.FC = () => {
 
   const { activeList, rejectedList } = useMemo(() => {
     let filtered = interns.filter(i => {
-      if (filter === 'all') return true;
       if (filter === 'rejected') return i.myStatus === 'rejected';
       if (i.myStatus === 'rejected') return false; // always separate for other tabs
+      if (filter === 'all') return true;
       if (filter === 'active') return true;
       return i.myStatus === filter;
     });
@@ -310,30 +310,42 @@ export const InternTracker: React.FC = () => {
         </td>
 
         {/* Status Picker */}
-        <td style={{ padding: '8px 10px', minWidth: 200 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {(Object.keys(STATUS_CONFIG) as InternStatus[]).map(s => {
-              const c = STATUS_CONFIG[s];
-              const isActive = intern.myStatus === s;
-              return (
-                <button
-                  key={s}
-                  onClick={() => setStatus(intern.id, s)}
-                  title={c.label}
-                  style={{
-                    padding: '3px 8px', borderRadius: 20,
-                    border: `1px solid ${isActive ? c.color : 'rgba(51,65,85,0.4)'}`,
-                    background: isActive ? c.bg : 'transparent',
-                    color: isActive ? c.color : '#334155',
-                    fontSize: 10, fontWeight: 700, cursor: 'pointer',
-                    transition: 'all 0.12s',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {c.emoji} {c.label}
-                </button>
-              );
-            })}
+        <td style={{ padding: '8px 10px', minWidth: 150 }}>
+          <div style={{ position: 'relative', width: '100%', minWidth: '135px' }}>
+            <select
+              value={intern.myStatus}
+              onChange={e => setStatus(intern.id, e.target.value as InternStatus)}
+              style={{
+                width: '100%',
+                padding: '6px 24px 6px 10px',
+                borderRadius: 8,
+                background: STATUS_CONFIG[intern.myStatus].bg,
+                border: `1px solid ${STATUS_CONFIG[intern.myStatus].border}`,
+                color: STATUS_CONFIG[intern.myStatus].color,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+                outline: 'none',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              {(Object.keys(STATUS_CONFIG) as InternStatus[]).map(s => {
+                const c = STATUS_CONFIG[s];
+                return (
+                  <option key={s} value={s} style={{ background: '#0b0f19', color: c.color }}>
+                    {c.emoji} {c.label}
+                  </option>
+                );
+              })}
+            </select>
+            <div style={{
+              position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+              pointerEvents: 'none', color: STATUS_CONFIG[intern.myStatus].color, display: 'flex', alignItems: 'center'
+            }}>
+              <ChevronDown size={11} />
+            </div>
           </div>
         </td>
 
@@ -463,27 +475,42 @@ export const InternTracker: React.FC = () => {
           )}
         </div>
 
-        {/* Status Pills */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {(Object.keys(STATUS_CONFIG) as InternStatus[]).map(s => {
-            const c = STATUS_CONFIG[s];
-            const isActive = intern.myStatus === s;
-            return (
-              <button
-                key={s}
-                onClick={() => setStatus(intern.id, s)}
-                style={{
-                  padding: '3px 9px', borderRadius: 20,
-                  border: `1px solid ${isActive ? c.color : 'rgba(51,65,85,0.4)'}`,
-                  background: isActive ? c.bg : 'transparent',
-                  color: isActive ? c.color : '#334155',
-                  fontSize: 10, fontWeight: 700, cursor: 'pointer', transition: 'all 0.12s', lineHeight: 1.4,
-                }}
-              >
-                {c.emoji} {c.label}
-              </button>
-            );
-          })}
+        {/* Status Picker Dropdown */}
+        <div style={{ position: 'relative', width: '100%' }}>
+          <select
+            value={intern.myStatus}
+            onChange={e => setStatus(intern.id, e.target.value as InternStatus)}
+            style={{
+              width: '100%',
+              padding: '8px 28px 8px 12px',
+              borderRadius: 10,
+              background: STATUS_CONFIG[intern.myStatus].bg,
+              border: `1px solid ${STATUS_CONFIG[intern.myStatus].border}`,
+              color: STATUS_CONFIG[intern.myStatus].color,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              transition: 'all 0.15s',
+            }}
+          >
+            {(Object.keys(STATUS_CONFIG) as InternStatus[]).map(s => {
+              const c = STATUS_CONFIG[s];
+              return (
+                <option key={s} value={s} style={{ background: '#0b0f19', color: c.color }}>
+                  {c.emoji} {c.label}
+                </option>
+              );
+            })}
+          </select>
+          <div style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            pointerEvents: 'none', color: STATUS_CONFIG[intern.myStatus].color, display: 'flex', alignItems: 'center'
+          }}>
+            <ChevronDown size={13} />
+          </div>
         </div>
 
         {/* Notes inline */}
@@ -572,7 +599,13 @@ export const InternTracker: React.FC = () => {
             </h2>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(76px, 1fr))',
+            gap: 6,
+            width: '100%',
+            marginTop: 12
+          }}>
             {[
               { l: 'Applied', v: stats.applied, c: '#818cf8' },
               { l: 'OA Good', v: stats.oa_good, c: '#10b981' },
@@ -584,10 +617,10 @@ export const InternTracker: React.FC = () => {
             ].map(s => (
               <div key={s.l} style={{
                 background: 'rgba(3,7,18,0.7)', border: '1px solid rgba(30,41,59,0.7)',
-                borderRadius: 10, padding: '6px 12px', textAlign: 'center', minWidth: 58,
+                borderRadius: 10, padding: '6px 8px', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: s.c, fontFamily: 'Outfit, sans-serif' }}>{s.v}</div>
-                <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 1 }}>{s.l}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: s.c, fontFamily: 'Outfit, sans-serif' }}>{s.v}</div>
+                <div style={{ fontSize: 8, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 1, whiteSpace: 'nowrap' }}>{s.l}</div>
               </div>
             ))}
           </div>
@@ -613,22 +646,55 @@ export const InternTracker: React.FC = () => {
       {/* ── Controls ─────────────────────────────────────────── */}
       <div style={{
         background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(30,41,59,0.7)',
-        borderRadius: 14, padding: '12px 16px',
-        display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
+        borderRadius: 14, padding: '12px',
+        display: 'flex', flexDirection: 'column', gap: 12,
       }}>
-        {/* Search */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(51,65,85,0.6)', borderRadius: 9, padding: '6px 12px', flex: '1 1 180px', maxWidth: 260 }}>
-          <Search size={13} style={{ color: '#475569', flexShrink: 0 }} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search company…"
-            style={{ background: 'none', border: 'none', outline: 'none', color: '#cbd5e1', fontSize: 12, width: '100%', fontFamily: 'Inter, sans-serif' }}
-          />
+        {/* Top row: Search + View Mode toggle */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap' }}>
+          {/* Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(51,65,85,0.6)', borderRadius: 9, padding: '6px 12px', flex: '1 1 180px', maxWidth: '280px' }}>
+            <Search size={13} style={{ color: '#475569', flexShrink: 0 }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search company…"
+              style={{ background: 'none', border: 'none', outline: 'none', color: '#cbd5e1', fontSize: 12, width: '100%', fontFamily: 'Inter, sans-serif' }}
+            />
+          </div>
+
+          {/* View toggle */}
+          <div style={{ display: 'flex', gap: 2, background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(30,41,59,0.7)', borderRadius: 9, padding: 3, marginLeft: 'auto' }}>
+            {(['table','cards'] as ViewMode[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setViewMode(v)}
+                style={{
+                  padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+                  background: viewMode === v ? 'rgba(99,102,241,0.2)' : 'transparent',
+                  border: viewMode === v ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                  color: viewMode === v ? '#818cf8' : '#475569',
+                  display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
+                }}
+              >
+                {v === 'table' ? <List size={13} /> : <LayoutGrid size={13} />}
+                <span className="hide-mobile-label">{v === 'table' ? 'Table' : 'Cards'}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Status filters */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        {/* Bottom row: Status filters (Scrollable) */}
+        <div 
+          className="no-scrollbar"
+          style={{
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            paddingBottom: 4,
+            width: '100%',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           {([
             'active',
             'all',
@@ -675,6 +741,8 @@ export const InternTracker: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 <span>{emoji}</span>
@@ -693,26 +761,6 @@ export const InternTracker: React.FC = () => {
               </button>
             );
           })}
-        </div>
-
-        {/* View toggle */}
-        <div style={{ display: 'flex', gap: 2, background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(30,41,59,0.7)', borderRadius: 9, padding: 3, marginLeft: 'auto' }}>
-          {(['table','cards'] as ViewMode[]).map(v => (
-            <button
-              key={v}
-              onClick={() => setViewMode(v)}
-              style={{
-                padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
-                background: viewMode === v ? 'rgba(99,102,241,0.2)' : 'transparent',
-                border: viewMode === v ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
-                color: viewMode === v ? '#818cf8' : '#475569',
-                display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700,
-              }}
-            >
-              {v === 'table' ? <List size={13} /> : <LayoutGrid size={13} />}
-              {v === 'table' ? 'Table' : 'Cards'}
-            </button>
-          ))}
         </div>
       </div>
 
