@@ -137,6 +137,7 @@ export const InternTracker: React.FC = () => {
   const stats = useMemo(() => ({
     total: interns.length,
     applied: interns.filter(i => ['applied','oa_bad','oa_good','shortlisted','interview_good','offered'].includes(i.myStatus)).length,
+    oa_good: interns.filter(i => i.myStatus === 'oa_good').length,
     offer: interns.filter(i => i.myStatus === 'offered').length,
     interview: interns.filter(i => i.myStatus === 'interview_good').length,
     shortlisted: interns.filter(i => i.myStatus === 'shortlisted').length,
@@ -144,10 +145,27 @@ export const InternTracker: React.FC = () => {
     rejected: interns.filter(i => i.myStatus === 'rejected').length,
   }), [interns]);
 
+  const filterCounts = useMemo(() => {
+    const counts: Record<FilterKey, number> = {
+      active: interns.filter(i => i.myStatus !== 'rejected').length,
+      all: interns.length,
+      not_applied: interns.filter(i => i.myStatus === 'not_applied').length,
+      applied: interns.filter(i => i.myStatus === 'applied').length,
+      oa_bad: interns.filter(i => i.myStatus === 'oa_bad').length,
+      oa_good: interns.filter(i => i.myStatus === 'oa_good').length,
+      shortlisted: interns.filter(i => i.myStatus === 'shortlisted').length,
+      interview_good: interns.filter(i => i.myStatus === 'interview_good').length,
+      offered: interns.filter(i => i.myStatus === 'offered').length,
+      rejected: interns.filter(i => i.myStatus === 'rejected').length,
+    };
+    return counts;
+  }, [interns]);
+
   const { activeList, rejectedList } = useMemo(() => {
     let filtered = interns.filter(i => {
-      if (i.myStatus === 'rejected') return false; // always separate
       if (filter === 'all') return true;
+      if (filter === 'rejected') return i.myStatus === 'rejected';
+      if (i.myStatus === 'rejected') return false; // always separate for other tabs
       if (filter === 'active') return true;
       return i.myStatus === filter;
     });
@@ -557,6 +575,7 @@ export const InternTracker: React.FC = () => {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
               { l: 'Applied', v: stats.applied, c: '#818cf8' },
+              { l: 'OA Good', v: stats.oa_good, c: '#10b981' },
               { l: 'Shortlisted', v: stats.shortlisted, c: '#38bdf8' },
               { l: 'Interview', v: stats.interview, c: '#fb923c' },
               { l: 'Offer', v: stats.offer, c: '#4ade80' },
@@ -610,21 +629,70 @@ export const InternTracker: React.FC = () => {
 
         {/* Status filters */}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {(['active','all','applied','oa_good','shortlisted','interview_good','offered','not_applied'] as FilterKey[]).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: '5px 11px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', transition: 'all 0.12s',
-                border: filter === f ? '1px solid rgba(99,102,241,0.6)' : '1px solid rgba(51,65,85,0.45)',
-                background: filter === f ? 'rgba(99,102,241,0.18)' : 'transparent',
-                color: filter === f ? '#a5b4fc' : '#475569',
-              }}
-            >
-              {f === 'active' ? '🟢 Active' : f === 'all' ? 'All' : STATUS_CONFIG[f as InternStatus]?.label ?? f}
-            </button>
-          ))}
+          {([
+            'active',
+            'all',
+            'not_applied',
+            'applied',
+            'oa_bad',
+            'oa_good',
+            'shortlisted',
+            'interview_good',
+            'offered',
+            'rejected'
+          ] as FilterKey[]).map(f => {
+            const isActive = filter === f;
+            const count = filterCounts[f];
+            
+            // Get label, emoji, and colors
+            let label = f === 'active' ? 'Active' : f === 'all' ? 'All' : STATUS_CONFIG[f as InternStatus]?.label ?? f;
+            let emoji = f === 'active' ? '🟢' : f === 'all' ? '📋' : STATUS_CONFIG[f as InternStatus]?.emoji ?? '';
+            
+            // Customize colors from STATUS_CONFIG
+            let activeColor = '#a5b4fc';
+            let activeBg = 'rgba(99,102,241,0.18)';
+            let activeBorder = 'rgba(99,102,241,0.6)';
+            
+            if (f !== 'active' && f !== 'all') {
+              const cfg = STATUS_CONFIG[f as InternStatus];
+              if (cfg) {
+                activeColor = cfg.color;
+                activeBg = cfg.bg;
+                activeBorder = cfg.border;
+              }
+            }
+            
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '5px 11px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', transition: 'all 0.12s',
+                  border: isActive ? `1px solid ${activeBorder}` : '1px solid rgba(51,65,85,0.45)',
+                  background: isActive ? activeBg : 'transparent',
+                  color: isActive ? activeColor : '#475569',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                <span>{emoji}</span>
+                <span>{label}</span>
+                <span style={{ 
+                  fontSize: 9, 
+                  opacity: 0.8, 
+                  background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.4)',
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  marginLeft: 2,
+                  fontFamily: 'monospace'
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* View toggle */}
@@ -684,7 +752,7 @@ export const InternTracker: React.FC = () => {
       )}
 
       {/* ── Rejected Accordion ──────────────────────────────── */}
-      {rejectedList.length > 0 && (
+      {rejectedList.length > 0 && filter !== 'rejected' && (
         <div style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.18)', borderRadius: 14, overflow: 'hidden' }}>
           <button
             onClick={() => setShowRejected(!showRejected)}

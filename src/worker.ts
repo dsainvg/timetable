@@ -250,11 +250,39 @@ async function dispatchEmail(env: Env, payload: { recipient: string; subject: st
 
 let isDbInitialized = false;
 
+function getHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash.toString();
+}
+
 // Auto-initialize D1 Database Tables
 async function ensureTables(db: any) {
   if (!db || isDbInitialized) return;
+  
+  const targetHash = getHash(JSON.stringify(INTERN_COMPANIES_DEFAULT));
+  try {
+    const result = await db.prepare("SELECT value FROM metadata WHERE key = 'companies_hash'").get();
+    if (result && result.value === targetHash) {
+      isDbInitialized = true;
+      return;
+    }
+  } catch (err) {
+    // If the metadata table doesn't exist, we proceed with full table creation and insert
+  }
+
   try {
     await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS metadata (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      `),
       db.prepare(`
         CREATE TABLE IF NOT EXISTS reminders (
           id TEXT PRIMARY KEY,
@@ -361,6 +389,10 @@ async function ensureTables(db: any) {
       );
     });
     await db.batch(statements);
+
+    // Save hash in metadata table
+    await db.prepare("INSERT INTO metadata (key, value) VALUES ('companies_hash', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(targetHash).run();
+
     isDbInitialized = true;
   } catch (err) {
     console.error('D1 Table Auto-Init Warning:', err);
