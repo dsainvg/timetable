@@ -1,0 +1,4 @@
+cookies.json
+data/_html_cache/
+*.pyc
+__pycache__/

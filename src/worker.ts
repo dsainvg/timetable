@@ -1,5 +1,6 @@
 // @ts-ignore
 import { connect } from 'cloudflare:sockets';
+import { INTERN_COMPANIES_DEFAULT } from './data/internData';
 
 export interface Env {
   DB?: any;
@@ -283,7 +284,79 @@ async function ensureTables(db: any) {
           UNIQUE(reminder_id, recipient)
         )
       `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS intern_roles (
+          id TEXT PRIMARY KEY,
+          company TEXT NOT NULL,
+          ctc INTEGER NOT NULL,
+          currency TEXT NOT NULL,
+          apply_status TEXT NOT NULL,
+          resume_start TEXT,
+          resume_end TEXT,
+          interview_date TEXT,
+          position_note TEXT,
+          sorting_done INTEGER DEFAULT 0,
+          my_status TEXT DEFAULT 'not_applied',
+          notes TEXT DEFAULT '',
+          jnf_url TEXT,
+          jnf_id TEXT,
+          com_id TEXT,
+          cgpa_cutoff TEXT,
+          stipend TEXT,
+          allowed_depts TEXT,
+          allowed_degrees TEXT,
+          job_description TEXT,
+          selection_process TEXT,
+          skills_required TEXT,
+          duration TEXT,
+          location TEXT,
+          positions TEXT,
+          tentative_start TEXT,
+          application_status TEXT DEFAULT ''
+        )
+      `),
     ]);
+
+    // Self-healing seeding: insert or update all roles preserving user customized columns
+    for (const r of INTERN_COMPANIES_DEFAULT) {
+      await db.prepare(`
+        INSERT INTO intern_roles (
+          id, company, ctc, currency, apply_status, resume_start, resume_end, interview_date,
+          position_note, sorting_done, my_status, notes, jnf_url, jnf_id, com_id,
+          cgpa_cutoff, stipend, allowed_depts, allowed_degrees, job_description,
+          selection_process, skills_required, duration, location, positions, tentative_start, application_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          company = excluded.company,
+          ctc = excluded.ctc,
+          currency = excluded.currency,
+          apply_status = excluded.apply_status,
+          resume_start = excluded.resume_start,
+          resume_end = excluded.resume_end,
+          position_note = excluded.position_note,
+          jnf_url = excluded.jnf_url,
+          jnf_id = excluded.jnf_id,
+          com_id = excluded.com_id,
+          cgpa_cutoff = excluded.cgpa_cutoff,
+          stipend = excluded.stipend,
+          allowed_depts = excluded.allowed_depts,
+          allowed_degrees = excluded.allowed_degrees,
+          job_description = excluded.job_description,
+          selection_process = excluded.selection_process,
+          skills_required = excluded.skills_required,
+          duration = excluded.duration,
+          location = excluded.location,
+          positions = excluded.positions,
+          tentative_start = excluded.tentative_start,
+          application_status = excluded.application_status
+      `).bind(
+        r.id, r.company, r.ctc, r.currency, r.applyStatus, r.resumeStart, r.resumeEnd, r.interviewDate || '',
+        r.positionNote || '', r.sortingDone ? 1 : 0, r.myStatus, r.notes || '', r.jnfUrl || '', r.jnfId || '', r.comId || '',
+        r.cgpaCutoff || '', r.stipend || '', JSON.stringify(r.allowedDepts || []), JSON.stringify(r.allowedDegrees || []),
+        r.jobDescription || '', r.selectionProcess || '', r.skillsRequired || '', r.duration || '', r.location || '',
+        r.positions || '', r.tentativeStart || '', r.applicationStatus || ''
+      ).run();
+    }
   } catch (err) {
     console.error('D1 Table Auto-Init Warning:', err);
   }
@@ -550,6 +623,75 @@ function validateSessionToken(authHeader: string | null): boolean {
       const authHeader = request.headers.get('Authorization');
       if (!validateSessionToken(authHeader)) {
         return json({ success: false, error: 'Unauthorized. Valid authentication token required.' }, 401);
+      }
+
+      if (path === '/api/interns' && request.method === 'GET') {
+        if (env.DB) {
+          try {
+            const { results } = await env.DB.prepare(
+              'SELECT * FROM intern_roles'
+            ).all();
+            const parsed = (results || []).map((row: any) => ({
+              id: row.id,
+              company: row.company,
+              ctc: Number(row.ctc),
+              currency: row.currency,
+              applyStatus: row.apply_status,
+              resumeStart: row.resume_start,
+              resumeEnd: row.resume_end,
+              interviewDate: row.interview_date,
+              positionNote: row.position_note,
+              sortingDone: row.sorting_done === 1,
+              myStatus: row.my_status,
+              notes: row.notes,
+              jnfUrl: row.jnf_url,
+              jnfId: row.jnf_id,
+              comId: row.com_id,
+              cgpaCutoff: row.cgpa_cutoff,
+              stipend: row.stipend,
+              allowedDepts: JSON.parse(row.allowed_depts || '[]'),
+              allowedDegrees: JSON.parse(row.allowed_degrees || '[]'),
+              jobDescription: row.job_description,
+              selectionProcess: row.selection_process,
+              skillsRequired: row.skills_required,
+              duration: row.duration,
+              location: row.location,
+              positions: row.positions,
+              tentativeStart: row.tentative_start,
+              applicationStatus: row.application_status
+            }));
+            return json(parsed);
+          } catch (e) {
+            console.error('GET /api/interns D1 error:', e);
+          }
+        }
+        return json(INTERN_COMPANIES_DEFAULT);
+      }
+
+      if (path === '/api/interns' && request.method === 'POST') {
+        const body = (await request.json()) as any;
+        if (env.DB) {
+          try {
+            await env.DB.prepare(`
+              UPDATE intern_roles SET
+                my_status = ?,
+                sorting_done = ?,
+                notes = ?,
+                interview_date = ?
+              WHERE id = ?
+            `).bind(
+              body.myStatus || 'not_applied',
+              body.sortingDone ? 1 : 0,
+              body.notes || '',
+              body.interviewDate || '',
+              body.id
+            ).run();
+            return json({ success: true });
+          } catch (e) {
+            console.error('POST /api/interns D1 error:', e);
+          }
+        }
+        return json({ success: true });
       }
 
       if (path === '/api/reminders' && request.method === 'GET') {

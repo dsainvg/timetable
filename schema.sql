@@ -46,3 +46,34 @@ INSERT OR REPLACE INTO reminders (id, title, subject_code, type, due_date, due_t
   ('rem-1', 'Parallel Programming Assignment 1', 'CS61064', 'assignment', '2026-07-28', '23:59', 'high', 'pending', 'Implement CUDA vector addition and matrix multiplication.'),
   ('rem-2', 'Compilers Lab Assignment 1', 'CS39003', 'assignment', '2026-07-29', '18:00', 'medium', 'pending', 'Flex/Bison lexer specification for Mini-C language.'),
   ('rem-3', 'Computer Org Quiz Prep', 'CS31007', 'exam', '2026-07-30', '10:00', 'high', 'pending', 'Revise MIPS pipeline datapath and hazard unit.');
+
+CREATE TABLE IF NOT EXISTS intern_roles (
+  id TEXT PRIMARY KEY,
+  company TEXT NOT NULL,
+  ctc INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  apply_status TEXT NOT NULL,
+  resume_start TEXT,
+  resume_end TEXT,
+  interview_date TEXT,
+  position_note TEXT,
+  sorting_done INTEGER DEFAULT 0,
+  my_status TEXT DEFAULT 'not_applied',
+  notes TEXT DEFAULT '',
+  jnf_url TEXT,
+  jnf_id TEXT,
+  com_id TEXT,
+  cgpa_cutoff TEXT,
+  stipend TEXT,
+  allowed_depts TEXT, -- JSON string array
+  allowed_degrees TEXT, -- JSON string array
+  job_description TEXT,
+  selection_process TEXT,
+  skills_required TEXT,
+  duration TEXT,
+  location TEXT,
+  positions TEXT,
+  tentative_start TEXT,
+  application_status TEXT DEFAULT '', -- Y or empty
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,3 +1,5 @@
+import { InternCompany } from '../data/internData';
+
 export interface Reminder {
   id: string;
   title: string;
@@ -285,3 +287,33 @@ export async function sendEmailNotification(payload: {
     };
   }
 }
+
+// ─── INTERN TRACKER ───────────────────────────────────────────────
+export async function getInternRoles(): Promise<InternCompany[]> {
+  if (!checkAuthSession().isAuthenticated) return [];
+  try {
+    const res = await fetch('/api/interns', { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+    }
+  } catch {
+    // API server fallback
+  }
+  return [];
+}
+
+export async function saveInternRole(role: InternCompany): Promise<boolean> {
+  if (!checkAuthSession().isAuthenticated) return false;
+  try {
+    const res = await fetch('/api/interns', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(role),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

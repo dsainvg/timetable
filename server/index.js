@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -56,6 +58,67 @@ let roomPrefsStore = {
   CS31003: 'NC241',
   CS31005: 'NC231',
 };
+
+// Seed internRolesStore from scraper output JSON on startup
+let internRolesStore = [];
+try {
+  const jsonPath = path.resolve('intern_scraper/data/all_roles_detailed.json');
+  if (fs.existsSync(jsonPath)) {
+    const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    internRolesStore = raw.map((r, idx) => {
+      let ctcVal = 0;
+      if (r.company_name.includes("Rubrik")) {
+        ctcVal = 621666;
+      } else {
+        const nums = (r.ctc || '').match(/\d+/);
+        if (nums) ctcVal = parseInt(nums[0], 10);
+      }
+      
+      let jd = (r.jnf_details || {}).job_description || '';
+      let title = (jd.split('\n')[0] || '').trim();
+      if (jd.toLowerCase().includes("quant dev")) title = "Quant Developer";
+      else if (jd.toLowerCase().includes("quant res")) title = "Quant Researcher";
+      else if (jd.toLowerCase().includes("quant trad")) title = "Quant Trader";
+      else if (jd.toLowerCase().includes("sde") || jd.toLowerCase().includes("software")) title = "Software Engineer";
+      else if (jd.toLowerCase().includes("data science")) title = "Data Scientist";
+      if (title.length > 50) title = title.substring(0, 47) + '...';
+      if (!title) title = "Internship Role";
+
+      return {
+        id: `i${idx+1}`,
+        company: r.company_name,
+        ctc: ctcVal,
+        currency: r.currency || 'INR',
+        applyStatus: r.apply_acceptance || 'Apply',
+        resumeStart: r.resume_upload_start || '',
+        resumeEnd: r.resume_upload_end || '',
+        interviewDate: r.interview_selection_date || '',
+        positionNote: title,
+        sortingDone: false,
+        myStatus: 'not_applied',
+        notes: '',
+        jnfUrl: r.jnf_url || '',
+        jnfId: r.jnf_id || '',
+        comId: r.com_id || '',
+        cgpaCutoff: (r.jnf_details || {}).cgpa_cutoff || '0.0',
+        stipend: (r.jnf_details || {}).stipend_per_month || r.ctc,
+        allowedDepts: (r.jnf_details || {}).allowed_departments || [],
+        allowedDegrees: (r.jnf_details || {}).allowed_degrees || [],
+        jobDescription: jd,
+        selectionProcess: (r.jnf_details || {}).selection_process || '',
+        skillsRequired: (r.jnf_details || {}).skills_required || '',
+        duration: (r.jnf_details || {}).duration || '',
+        location: (r.jnf_details || {}).location || '',
+        positions: (r.jnf_details || {}).positions || '',
+        tentativeStart: (r.jnf_details || {}).tentative_start_date || '',
+        applicationStatus: r.application_status || ''
+      };
+    });
+  }
+} catch (e) {
+  console.error("Local server failed to load scraper JSON:", e);
+}
+
 
 // --- GMAIL SMTP TRANSPORTER CONFIGURATION ---
 const SENDER_EMAIL = process.env.GMAIL_USER || 'onlyforgdb@gmail.com';
@@ -129,6 +192,21 @@ app.use((req, res, next) => {
     return res.status(401).json({ success: false, error: 'Unauthorized. Valid authentication token required.' });
   }
   next();
+});
+
+// GET intern roles
+app.get('/api/interns', (req, res) => {
+  res.json(internRolesStore);
+});
+
+// POST intern role update
+app.post('/api/interns', (req, res) => {
+  const role = req.body;
+  const existingIdx = internRolesStore.findIndex((r) => r.id === role.id);
+  if (existingIdx >= 0) {
+    internRolesStore[existingIdx] = { ...internRolesStore[existingIdx], ...role };
+  }
+  res.json({ success: true, roles: internRolesStore });
 });
 
 // GET reminders

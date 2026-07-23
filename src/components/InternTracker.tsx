@@ -22,6 +22,7 @@ import {
   saveInternData,
   formatCTC,
 } from '../data/internData';
+import { getInternRoles, saveInternRole } from '../services/api';
 
 type SortKey = 'company' | 'ctc' | 'resumeEnd' | 'myStatus';
 type SortDir = 'asc' | 'desc';
@@ -51,38 +52,81 @@ export const InternTracker: React.FC = () => {
   const [noteDraft, setNoteDraft] = useState('');
   const [editInterviewId, setEditInterviewId] = useState<string | null>(null);
   const [interviewDraft, setInterviewDraft] = useState('');
+  const [selectedDetail, setSelectedDetail] = useState<InternCompany | null>(null);
 
-  useEffect(() => { setInterns(getInternData()); }, []);
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const roles = await getInternRoles();
+      if (active) {
+        if (roles && roles.length > 0) {
+          setInterns(roles);
+          saveInternData(roles);
+        } else {
+          setInterns(getInternData());
+        }
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
 
-  const persist = useCallback((updated: InternCompany[]) => {
+  const persist = useCallback((updated: InternCompany[], changedRole?: InternCompany) => {
     setInterns(updated);
     saveInternData(updated);
+    if (changedRole) {
+      saveInternRole(changedRole);
+    }
   }, []);
+
 
   // Only ONE company can be SORTED at a time (radio behavior)
   const toggleSorted = (id: string) => {
-    const isCurrentlySorted = interns.find(i => i.id === id)?.sortingDone ?? false;
-    // If clicking the already-sorted one → deselect. Otherwise → select this, clear all others.
-    persist(
-      interns.map(i =>
-        i.id === id
-          ? { ...i, sortingDone: !isCurrentlySorted }
-          : { ...i, sortingDone: false }   // clear every other company
-      )
+    const role = interns.find(i => i.id === id);
+    if (!role) return;
+    const isCurrentlySorted = role.sortingDone;
+    const updatedRole = { ...role, sortingDone: !isCurrentlySorted };
+    
+    const nextList = interns.map(i =>
+      i.id === id ? updatedRole : { ...i, sortingDone: false }
     );
+    
+    setInterns(nextList);
+    saveInternData(nextList);
+    saveInternRole(updatedRole);
+    
+    // Clear other sorted items in DB
+    interns.forEach(i => {
+      if (i.id !== id && i.sortingDone) {
+        saveInternRole({ ...i, sortingDone: false });
+      }
+    });
   };
 
-  const setStatus = (id: string, status: InternStatus) =>
-    persist(interns.map(i => i.id === id ? { ...i, myStatus: status } : i));
+  const setStatus = (id: string, status: InternStatus) => {
+    const role = interns.find(i => i.id === id);
+    if (role) {
+      const updatedRole = { ...role, myStatus: status };
+      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
+    }
+  };
 
   const saveNote = (id: string) => {
-    persist(interns.map(i => i.id === id ? { ...i, notes: noteDraft } : i));
-    setEditId(null);
+    const role = interns.find(i => i.id === id);
+    if (role) {
+      const updatedRole = { ...role, notes: noteDraft };
+      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
+      setEditId(null);
+    }
   };
 
   const saveInterview = (id: string) => {
-    persist(interns.map(i => i.id === id ? { ...i, interviewDate: interviewDraft } : i));
-    setEditInterviewId(null);
+    const role = interns.find(i => i.id === id);
+    if (role) {
+      const updatedRole = { ...role, interviewDate: interviewDraft };
+      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
+      setEditInterviewId(null);
+    }
   };
 
   const handleSort = (k: SortKey) => {
@@ -112,10 +156,17 @@ export const InternTracker: React.FC = () => {
       filtered = filtered.filter(i => i.company.toLowerCase().includes(q));
     }
     const sorted = [...filtered].sort((a, b) => {
+      // Bubble down empty application status: Y (yes) goes on top, empty/other stays at bottom
+      const aApplied = a.applicationStatus === 'Y';
+      const bApplied = b.applicationStatus === 'Y';
+      if (aApplied && !bApplied) return -1;
+      if (!aApplied && bApplied) return 1;
+
+      // Internal sorting within the same group
       let cmp = 0;
       if (sortKey === 'ctc') cmp = a.ctc - b.ctc;
       else if (sortKey === 'company') cmp = a.company.localeCompare(b.company);
-      else if (sortKey === 'resumeEnd') cmp = a.resumeEnd.localeCompare(b.resumeEnd);
+      else if (sortKey === 'resumeEnd') cmp = (a.resumeEnd || '').localeCompare(b.resumeEnd || '');
       else if (sortKey === 'myStatus') cmp = STATUS_ORDER.indexOf(a.myStatus) - STATUS_ORDER.indexOf(b.myStatus);
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -172,8 +223,14 @@ export const InternTracker: React.FC = () => {
 
         {/* Company */}
         <td style={{ padding: '10px 14px', minWidth: 180 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', lineHeight: 1.3 }}>
-            {intern.company}
+          <div
+            onClick={() => setSelectedDetail(intern)}
+            style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0', lineHeight: 1.3, cursor: 'pointer' }}
+            title="Click to view full role details"
+          >
+            <span style={{ borderBottom: '1px dashed rgba(226, 232, 240, 0.4)', transition: 'color 0.15s' }}>
+              {intern.company}
+            </span>
           </div>
           {intern.positionNote && (
             <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{intern.positionNote}</div>
@@ -359,8 +416,14 @@ export const InternTracker: React.FC = () => {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9', lineHeight: 1.3, fontFamily: 'Outfit, sans-serif' }}>
-              {intern.company}
+            <div
+              onClick={() => setSelectedDetail(intern)}
+              style={{ fontSize: 14, fontWeight: 800, color: '#f1f5f9', lineHeight: 1.3, fontFamily: 'Outfit, sans-serif', cursor: 'pointer' }}
+              title="Click to view full details"
+            >
+              <span style={{ borderBottom: '1px dashed rgba(241, 245, 249, 0.4)' }}>
+                {intern.company}
+              </span>
             </div>
           </div>
           <span style={{ fontWeight: 800, fontSize: 14, color: '#4ade80', fontFamily: 'Outfit, sans-serif', whiteSpace: 'nowrap' }}>
@@ -673,6 +736,216 @@ export const InternTracker: React.FC = () => {
           )}
         </div>
       )}
+      {/* ── Details Modal ── */}
+      {selectedDetail && (
+        <div
+          onClick={() => setSelectedDetail(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(12px)',
+            zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#090d16', border: '1px solid rgba(99,102,241,0.25)',
+              borderRadius: 20, width: '100%', maxWidth: '720px', maxHeight: '85vh',
+              boxShadow: '0 20px 40px -15px rgba(0,0,0,0.7), 0 0 30px rgba(99,102,241,0.06)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px', borderBottom: '1px solid rgba(30,41,59,0.7)',
+              background: 'linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.4) 100%)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16,
+            }}>
+              <div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', margin: 0, fontFamily: 'Outfit, sans-serif' }}>
+                  {selectedDetail.company}
+                </h3>
+                {selectedDetail.positionNote && (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#818cf8', marginTop: 4 }}>
+                    {selectedDetail.positionNote}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedDetail(null)}
+                style={{
+                  background: 'rgba(30,41,59,0.5)', border: '1px solid rgba(51,65,85,0.4)',
+                  borderRadius: '50%', width: 28, height: 28, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  color: '#94a3b8', transition: 'all 0.15s',
+                }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Quick Badges */}
+            <div style={{
+              padding: '12px 24px', background: 'rgba(3,7,18,0.4)',
+              borderBottom: '1px solid rgba(30,41,59,0.5)',
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12,
+            }}>
+              <div>
+                <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Stipend</span>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#4ade80', marginTop: 1 }}>
+                  {selectedDetail.stipend || formatCTC(selectedDetail.ctc, selectedDetail.currency)}
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>CGPA Cut-off</span>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#38bdf8', marginTop: 1 }}>
+                  {selectedDetail.cgpaCutoff && parseFloat(selectedDetail.cgpaCutoff) > 0 ? `≥ ${selectedDetail.cgpaCutoff}` : 'No Cut-off'}
+                </div>
+              </div>
+              {selectedDetail.duration && (
+                <div>
+                  <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Duration</span>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginTop: 2 }}>{selectedDetail.duration}</div>
+                </div>
+              )}
+              {selectedDetail.location && (
+                <div>
+                  <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Location</span>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginTop: 2 }}>{selectedDetail.location}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Content Body (Scrollable) */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              
+              {/* Job Description */}
+              {selectedDetail.jobDescription && (
+                <div>
+                  <h4 style={{ fontSize: 12, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px 0' }}>
+                    Job Description
+                  </h4>
+                  <div style={{
+                    fontSize: 13, color: '#94a3b8', lineHeight: 1.6, whiteSpace: 'pre-wrap',
+                    background: 'rgba(15,23,42,0.4)', borderRadius: 10, padding: 12,
+                    border: '1px solid rgba(30,41,59,0.5)',
+                  }}>
+                    {selectedDetail.jobDescription}
+                  </div>
+                </div>
+              )}
+
+              {/* Skills Required */}
+              {selectedDetail.skillsRequired && (
+                <div>
+                  <h4 style={{ fontSize: 12, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px 0' }}>
+                    Skills Required
+                  </h4>
+                  <div style={{
+                    fontSize: 13, color: '#cbd5e1', lineHeight: 1.5,
+                    background: 'rgba(15,23,42,0.4)', borderRadius: 10, padding: 12,
+                    border: '1px solid rgba(30,41,59,0.5)',
+                  }}>
+                    {selectedDetail.skillsRequired}
+                  </div>
+                </div>
+              )}
+
+              {/* Selection Process */}
+              {selectedDetail.selectionProcess && (
+                <div>
+                  <h4 style={{ fontSize: 12, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px 0' }}>
+                    Selection Process
+                  </h4>
+                  <div style={{
+                    fontSize: 13, color: '#94a3b8', lineHeight: 1.5,
+                    background: 'rgba(15,23,42,0.4)', borderRadius: 10, padding: 12,
+                    border: '1px solid rgba(30,41,59,0.5)',
+                  }}>
+                    {selectedDetail.selectionProcess}
+                  </div>
+                </div>
+              )}
+
+              {/* Allowed Depts & Degrees */}
+              {((selectedDetail.allowedDepts && selectedDetail.allowedDepts.length > 0) || 
+                (selectedDetail.allowedDegrees && selectedDetail.allowedDegrees.length > 0)) && (
+                <div>
+                  <h4 style={{ fontSize: 12, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px 0' }}>
+                    Eligibility (Departments & Degrees)
+                  </h4>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                    background: 'rgba(15,23,42,0.4)', borderRadius: 10, padding: 12,
+                    border: '1px solid rgba(30,41,59,0.5)',
+                  }}>
+                    {selectedDetail.allowedDegrees && selectedDetail.allowedDegrees.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: 10, color: '#475569', fontWeight: 700 }}>DEGREES:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {selectedDetail.allowedDegrees.map(deg => (
+                            <span key={deg} style={{ fontSize: 11, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 4, padding: '2px 6px', color: '#cbd5e1' }}>
+                              {deg}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedDetail.allowedDepts && selectedDetail.allowedDepts.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <span style={{ fontSize: 10, color: '#475569', fontWeight: 700 }}>DEPARTMENTS:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {selectedDetail.allowedDepts.map(dept => (
+                            <span key={dept} style={{ fontSize: 11, background: 'rgba(30,41,59,0.6)', border: '1px solid rgba(51,65,85,0.4)', borderRadius: 4, padding: '2px 6px', color: '#94a3b8' }}>
+                              {dept}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px', borderTop: '1px solid rgba(30,41,59,0.7)',
+              background: 'rgba(3,7,18,0.6)', display: 'flex', justifyContent: 'flex-end', gap: 12,
+            }}>
+              <button
+                onClick={() => setSelectedDetail(null)}
+                style={{
+                  background: 'rgba(30,41,59,0.4)', border: '1px solid rgba(51,65,85,0.4)',
+                  borderRadius: 10, padding: '8px 16px', color: '#94a3b8',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                Close
+              </button>
+              {selectedDetail.jnfUrl && (
+                <a
+                  href={selectedDetail.jnfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                    border: 'none', borderRadius: 10, padding: '8px 16px', color: '#fff',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    boxShadow: '0 4px 12px rgba(99,102,241,0.25)',
+                  }}
+                >
+                  Open ERP JNF page ↗
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
