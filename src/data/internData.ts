@@ -1,4 +1,4 @@
-export type InternStatus = 'not_applied' | 'applied' | 'shortlisted' | 'interview' | 'offer' | 'rejected';
+export type InternStatus = 'not_applied' | 'applied' | 'oa_bad' | 'oa_good' | 'shortlisted' | 'interview_good' | 'offered' | 'rejected';
 
 export interface InternCompany {
   id: string;
@@ -31,7 +31,7 @@ export interface InternCompany {
   applicationStatus?: string;
 }
 
-const LOCAL_STORAGE_KEY = 'iitkgp_intern_tracker_v3';
+const LOCAL_STORAGE_KEY = 'iitkgp_intern_tracker_v4';
 
 export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
@@ -45,7 +45,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Trader",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -99,7 +99,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i2",
@@ -112,7 +113,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -199,7 +200,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i3",
@@ -212,7 +214,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -266,7 +268,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i4",
@@ -279,7 +282,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=23&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -503,7 +506,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i5",
@@ -516,7 +520,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=28&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -675,7 +679,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i6",
@@ -688,7 +693,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Data Scientist",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=28&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -847,7 +852,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i7",
@@ -860,7 +866,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=8&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -911,7 +917,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i8",
@@ -1153,7 +1160,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i9",
@@ -1395,7 +1403,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i10",
@@ -1559,7 +1568,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i11",
@@ -1572,7 +1582,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=56&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1644,7 +1654,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i12",
@@ -1657,7 +1668,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Full Stack Developer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=65&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1886,7 +1897,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i13",
@@ -1899,7 +1911,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Developer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=12&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2060,7 +2072,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i14",
@@ -2073,7 +2086,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=2&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2098,7 +2111,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i15",
@@ -2274,7 +2288,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i16",
@@ -2287,7 +2302,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Business Analyst",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=72&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2450,7 +2465,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i17",
@@ -2463,7 +2479,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=38&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -2690,7 +2706,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i18",
@@ -2703,7 +2720,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=38&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2930,7 +2947,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i19",
@@ -2943,7 +2961,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quantitative Analyst",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=87&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3164,7 +3182,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i20",
@@ -3177,7 +3196,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=87&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -3398,7 +3417,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i21",
@@ -3411,7 +3431,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=41&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3476,7 +3496,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i22",
@@ -3489,7 +3510,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=83&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3534,7 +3555,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i23",
@@ -3547,7 +3569,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=83&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -3602,7 +3624,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i24",
@@ -3615,7 +3638,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Data Scientist",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=49&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3842,7 +3865,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i25",
@@ -4062,7 +4086,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i26",
@@ -4075,7 +4100,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=1&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -4200,7 +4225,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i27",
@@ -4213,7 +4239,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=1&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -4250,7 +4276,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i28",
@@ -4263,7 +4290,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Analyst",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=67&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -4285,7 +4312,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i29",
@@ -4298,7 +4326,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=67&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -4320,7 +4348,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i30",
@@ -4333,7 +4362,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=20&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -4464,7 +4493,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i31",
@@ -4477,7 +4507,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "AIML / HPC Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=76&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -4534,7 +4564,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i32",
@@ -4776,7 +4807,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i33",
@@ -5018,7 +5050,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i34",
@@ -5031,7 +5064,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=42&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -5260,7 +5293,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i35",
@@ -5273,7 +5307,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Developer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=25&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -5328,7 +5362,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i36",
@@ -5341,7 +5376,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quantitative Analyst",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=86&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -5570,7 +5605,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i37",
@@ -5812,7 +5848,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i38",
@@ -5825,7 +5862,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=36&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -6054,7 +6091,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i39",
@@ -6288,7 +6326,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i40",
@@ -6301,7 +6340,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=36&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -6530,7 +6569,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i41",
@@ -6543,7 +6583,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -6597,7 +6637,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i42",
@@ -6610,7 +6651,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -6664,7 +6705,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i43",
@@ -6677,7 +6719,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -6731,7 +6773,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i44",
@@ -6907,7 +6950,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": ""
   },
   {
     "id": "i45",
@@ -6920,7 +6964,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Global Markets Intern",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=53&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -7081,7 +7125,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i46",
@@ -7094,7 +7139,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Trader",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=52&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7160,7 +7205,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i47",
@@ -7173,7 +7219,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Data Scientist",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=64&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -7350,7 +7396,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i48",
@@ -7363,7 +7410,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=64&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7526,7 +7573,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i49",
@@ -7539,7 +7587,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=77&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7665,7 +7713,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i50",
@@ -7678,7 +7727,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=77&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -7804,7 +7853,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i51",
@@ -7817,7 +7867,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Developer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=46&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -7872,7 +7922,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i52",
@@ -7885,7 +7936,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Developer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=46&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7940,7 +7991,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i53",
@@ -7953,7 +8005,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=59&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8108,7 +8160,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i54",
@@ -8121,7 +8174,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=59&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8151,7 +8204,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i55",
@@ -8164,7 +8218,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Strategist",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=69&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8219,7 +8273,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i56",
@@ -8232,7 +8287,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Systems Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=69&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8287,7 +8342,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i57",
@@ -8300,7 +8356,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=4&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "4",
@@ -8356,7 +8412,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i58",
@@ -8369,7 +8426,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Trader",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=7&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "7",
@@ -8425,7 +8482,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i59",
@@ -8438,7 +8496,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Trader",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=5&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "5",
@@ -8494,7 +8552,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i60",
@@ -8507,7 +8566,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8563,7 +8622,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i61",
@@ -8576,7 +8636,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=40&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8603,7 +8663,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i62",
@@ -8616,7 +8677,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=40&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8643,7 +8704,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i63",
@@ -8656,7 +8718,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=9&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8885,7 +8947,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i64",
@@ -8898,7 +8961,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Product Engineer (SDE)",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=30&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8931,7 +8994,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i65",
@@ -8944,7 +9008,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=11&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9019,7 +9083,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i66",
@@ -9032,7 +9097,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Hardware / VLSI Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=93&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -9086,7 +9151,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i67",
@@ -9099,7 +9165,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Hardware / VLSI Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=93&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9127,7 +9193,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i68",
@@ -9140,7 +9207,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=18&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9369,7 +9436,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i69",
@@ -9382,7 +9450,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Data Scientist",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=58&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9437,7 +9505,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i70",
@@ -9450,7 +9519,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Software Engineer",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=14&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9505,7 +9574,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i71",
@@ -9518,7 +9588,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quantitative Analyst",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=82&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9747,7 +9817,8 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   },
   {
     "id": "i72",
@@ -9760,7 +9831,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "Quant Researcher",
     "sortingDone": false,
-    "myStatus": "not_applied",
+    "myStatus": "applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=19&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9923,11 +9994,12 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "duration": "",
     "location": "",
     "positions": "",
-    "tentativeStart": ""
+    "tentativeStart": "",
+    "applicationStatus": "Y"
   }
 ];
 
-// Migration-aware loader: if old v2 data exists, transfer statuses over
+// Migration-aware loader: if old v3 or v2 data exists, transfer statuses over
 export function getInternData(): InternCompany[] {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -9936,21 +10008,26 @@ export function getInternData(): InternCompany[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
     
-    // Migrate from v2 if present
-    const v2raw = localStorage.getItem('iitkgp_intern_tracker_v2');
-    if (v2raw) {
-      const v2 = JSON.parse(v2raw) as any[];
+    // Migrate from v3 / v2 if present
+    const prevRaw = localStorage.getItem('iitkgp_intern_tracker_v3') || localStorage.getItem('iitkgp_intern_tracker_v2');
+    if (prevRaw) {
+      const prevData = JSON.parse(prevRaw) as any[];
       const merged = INTERN_COMPANIES_DEFAULT.map(d => {
-        // Find best match in old v2 list based on company name and positionNote or ctc
-        const old = v2.find(o => 
+        // Find best match
+        const old = prevData.find(o => 
           o.company === d.company && 
           (o.positionNote === d.positionNote || Math.abs((o.ctc || 0) - d.ctc) < 5000)
-        ) || v2.find(o => o.company === d.company); // fallback to name-only match
+        ) || prevData.find(o => o.company === d.company);
         
         if (old) {
+          // Map old statuses to new status values
+          let mappedStatus: InternStatus = old.myStatus || d.myStatus;
+          if (old.myStatus === 'offer') mappedStatus = 'offered';
+          else if (old.myStatus === 'interview') mappedStatus = 'interview_good';
+          
           return {
             ...d,
-            myStatus: old.myStatus || 'not_applied',
+            myStatus: mappedStatus,
             sortingDone: old.sortingDone || false,
             notes: old.notes || '',
             interviewDate: old.interviewDate || d.interviewDate
@@ -9978,12 +10055,14 @@ export const STATUS_CONFIG: Record<InternStatus, {
   label: string; emoji: string;
   color: string; bg: string; border: string;
 }> = {
-  not_applied: { label: 'Not Applied', emoji: '○', color: '#64748b', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.22)' },
-  applied:     { label: 'Applied',     emoji: '✓', color: '#818cf8', bg: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.35)'  },
-  shortlisted: { label: 'Shortlisted', emoji: '🎯', color: '#38bdf8', bg: 'rgba(56,189,248,0.1)',  border: 'rgba(56,189,248,0.35)'  },
-  interview:   { label: 'Interview',   emoji: '🔥', color: '#fb923c', bg: 'rgba(251,146,60,0.1)',  border: 'rgba(251,146,60,0.35)'  },
-  offer:       { label: 'Offer! 🎉',   emoji: '🎉', color: '#4ade80', bg: 'rgba(74,222,128,0.1)',  border: 'rgba(74,222,128,0.35)'  },
-  rejected:    { label: 'Rejected',    emoji: '✗',  color: '#f87171', bg: 'rgba(248,113,113,0.06)', border: 'rgba(248,113,113,0.2)' },
+  not_applied:    { label: 'Not Applied', emoji: '○', color: '#64748b', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.22)' },
+  applied:        { label: 'Applied',     emoji: '✓', color: '#818cf8', bg: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.35)'  },
+  oa_bad:         { label: 'OA - Bad',    emoji: '⚠️', color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.25)' },
+  oa_good:        { label: 'OA - Good',   emoji: '⚡', color: '#10b981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.3)'   },
+  shortlisted:    { label: 'Shortlisted for Interview', emoji: '🎯', color: '#38bdf8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.35)' },
+  interview_good: { label: 'Interview Gone Good', emoji: '🔥', color: '#fb923c', bg: 'rgba(251,146,60,0.1)', border: 'rgba(251,146,60,0.35)' },
+  offered:        { label: 'Offered! 🎉',  emoji: '🎉', color: '#4ade80', bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.35)' },
+  rejected:       { label: 'Rejected',    emoji: '✗',  color: '#ef4444', bg: 'rgba(239,68,68,0.06)',  border: 'rgba(239,68,68,0.2)'    },
 };
 
 // Format CTC nicely

@@ -29,7 +29,7 @@ type SortDir = 'asc' | 'desc';
 type ViewMode = 'table' | 'cards';
 type FilterKey = InternStatus | 'active' | 'all';
 
-const STATUS_ORDER: InternStatus[] = ['offer','interview','shortlisted','applied','not_applied','rejected'];
+const STATUS_ORDER: InternStatus[] = ['offered', 'interview_good', 'shortlisted', 'oa_good', 'oa_bad', 'applied', 'not_applied', 'rejected'];
 
 // ─── Tier categorization by CTC ──────────────────────────────────
 function getTier(ctc: number, currency: string) {
@@ -136,9 +136,9 @@ export const InternTracker: React.FC = () => {
 
   const stats = useMemo(() => ({
     total: interns.length,
-    applied: interns.filter(i => ['applied','shortlisted','interview','offer'].includes(i.myStatus)).length,
-    offer: interns.filter(i => i.myStatus === 'offer').length,
-    interview: interns.filter(i => i.myStatus === 'interview').length,
+    applied: interns.filter(i => ['applied','oa_bad','oa_good','shortlisted','interview_good','offered'].includes(i.myStatus)).length,
+    offer: interns.filter(i => i.myStatus === 'offered').length,
+    interview: interns.filter(i => i.myStatus === 'interview_good').length,
     shortlisted: interns.filter(i => i.myStatus === 'shortlisted').length,
     sorted: interns.filter(i => i.sortingDone).length,
     rejected: interns.filter(i => i.myStatus === 'rejected').length,
@@ -610,7 +610,7 @@ export const InternTracker: React.FC = () => {
 
         {/* Status filters */}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {(['active','all','applied','shortlisted','interview','offer','not_applied'] as FilterKey[]).map(f => (
+          {(['active','all','applied','oa_good','shortlisted','interview_good','offered','not_applied'] as FilterKey[]).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}

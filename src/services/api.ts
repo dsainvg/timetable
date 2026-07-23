@@ -305,6 +305,58 @@ export async function getInternRoles(): Promise<InternCompany[]> {
 
 export async function saveInternRole(role: InternCompany): Promise<boolean> {
   if (!checkAuthSession().isAuthenticated) return false;
+  
+  // Synchronize with local storage reminders list
+  try {
+    const remId = 'rem-interview-' + role.id;
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_REMINDERS);
+    let current = raw ? JSON.parse(raw) : [];
+    if (!role.interviewDate) {
+      current = current.filter((r: any) => r.id !== remId);
+    } else {
+      let dueDate = '';
+      let dueTime = '23:59';
+      const parts = role.interviewDate.trim().split(/\s+/);
+      if (parts.length >= 1) {
+        const datePart = parts[0];
+        const timePart = parts[1] || '23:59';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          dueDate = datePart;
+        } else if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
+          const [d, m, y] = datePart.split('-');
+          dueDate = `${y}-${m}-${d}`;
+        }
+        if (/^\d{2}:\d{2}$/.test(timePart)) {
+          dueTime = timePart;
+        }
+      }
+      if (dueDate) {
+        const existingIdx = current.findIndex((r: any) => r.id === remId);
+        const newRem = {
+          id: remId,
+          title: `Interview: ${role.company}`,
+          subject_code: 'INTERNSHIP',
+          type: 'exam',
+          due_date: dueDate,
+          due_time: dueTime,
+          priority: 'high',
+          status: 'pending',
+          send_email: true,
+          description: `Interview session scheduled for ${role.company} (${role.positionNote || 'Intern'}).`,
+          created_at: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          current[existingIdx] = { ...current[existingIdx], ...newRem };
+        } else {
+          current.unshift(newRem);
+        }
+      }
+    }
+    localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(current));
+  } catch (e) {
+    console.error('Failed to sync interview date to local reminders:', e);
+  }
+
   try {
     const res = await fetch('/api/interns', {
       method: 'POST',

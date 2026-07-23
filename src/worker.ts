@@ -248,9 +248,11 @@ async function dispatchEmail(env: Env, payload: { recipient: string; subject: st
   }
 }
 
+let isDbInitialized = false;
+
 // Auto-initialize D1 Database Tables
 async function ensureTables(db: any) {
-  if (!db) return;
+  if (!db || isDbInitialized) return;
   try {
     await db.batch([
       db.prepare(`
@@ -317,46 +319,29 @@ async function ensureTables(db: any) {
       `),
     ]);
 
-    // Self-healing seeding: insert or update all roles preserving user customized columns
-    for (const r of INTERN_COMPANIES_DEFAULT) {
-      await db.prepare(`
-        INSERT INTO intern_roles (
-          id, company, ctc, currency, apply_status, resume_start, resume_end, interview_date,
-          position_note, sorting_done, my_status, notes, jnf_url, jnf_id, com_id,
-          cgpa_cutoff, stipend, allowed_depts, allowed_degrees, job_description,
-          selection_process, skills_required, duration, location, positions, tentative_start, application_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          company = excluded.company,
-          ctc = excluded.ctc,
-          currency = excluded.currency,
-          apply_status = excluded.apply_status,
-          resume_start = excluded.resume_start,
-          resume_end = excluded.resume_end,
-          position_note = excluded.position_note,
-          jnf_url = excluded.jnf_url,
-          jnf_id = excluded.jnf_id,
-          com_id = excluded.com_id,
-          cgpa_cutoff = excluded.cgpa_cutoff,
-          stipend = excluded.stipend,
-          allowed_depts = excluded.allowed_depts,
-          allowed_degrees = excluded.allowed_degrees,
-          job_description = excluded.job_description,
-          selection_process = excluded.selection_process,
-          skills_required = excluded.skills_required,
-          duration = excluded.duration,
-          location = excluded.location,
-          positions = excluded.positions,
-          tentative_start = excluded.tentative_start,
-          application_status = excluded.application_status
-      `).bind(
-        r.id, r.company, r.ctc, r.currency, r.applyStatus, r.resumeStart, r.resumeEnd, r.interviewDate || '',
-        r.positionNote || '', r.sortingDone ? 1 : 0, r.myStatus, r.notes || '', r.jnfUrl || '', r.jnfId || '', r.comId || '',
-        r.cgpaCutoff || '', r.stipend || '', JSON.stringify(r.allowedDepts || []), JSON.stringify(r.allowedDegrees || []),
-        r.jobDescription || '', r.selectionProcess || '', r.skillsRequired || '', r.duration || '', r.location || '',
-        r.positions || '', r.tentativeStart || '', r.applicationStatus || ''
-      ).run();
+    // Optimize: check if table is already seeded before batching inserts
+    const countCheck = await db.prepare("SELECT COUNT(*) as count FROM intern_roles").first("count");
+    if (countCheck === 0) {
+      // Build a single batch query for all 72 roles (1 RTT total)
+      const statements = INTERN_COMPANIES_DEFAULT.map(r => {
+        return db.prepare(`
+          INSERT INTO intern_roles (
+            id, company, ctc, currency, apply_status, resume_start, resume_end, interview_date,
+            position_note, sorting_done, my_status, notes, jnf_url, jnf_id, com_id,
+            cgpa_cutoff, stipend, allowed_depts, allowed_degrees, job_description,
+            selection_process, skills_required, duration, location, positions, tentative_start, application_status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          r.id, r.company, r.ctc, r.currency, r.applyStatus, r.resumeStart, r.resumeEnd, r.interviewDate || '',
+          r.positionNote || '', r.sortingDone ? 1 : 0, r.myStatus, r.notes || '', r.jnfUrl || '', r.jnfId || '', r.comId || '',
+          r.cgpaCutoff || '', r.stipend || '', JSON.stringify(r.allowedDepts || []), JSON.stringify(r.allowedDegrees || []),
+          r.jobDescription || '', r.selectionProcess || '', r.skillsRequired || '', r.duration || '', r.location || '',
+          r.positions || '', r.tentativeStart || '', r.applicationStatus || ''
+        );
+      });
+      await db.batch(statements);
     }
+    isDbInitialized = true;
   } catch (err) {
     console.error('D1 Table Auto-Init Warning:', err);
   }
@@ -686,6 +671,53 @@ function validateSessionToken(authHeader: string | null): boolean {
               body.interviewDate || '',
               body.id
             ).run();
+
+            // Synchronize with reminders table
+            const remId = 'rem-interview-' + body.id;
+            if (!body.interviewDate) {
+              await env.DB.prepare('DELETE FROM reminders WHERE id = ?').bind(remId).run().catch(() => {});
+            } else {
+              let dueDate = '';
+              let dueTime = '23:59';
+              const parts = (body.interviewDate || '').trim().split(/\s+/);
+              if (parts.length >= 1) {
+                const datePart = parts[0];
+                const timePart = parts[1] || '23:59';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+                  dueDate = datePart;
+                } else if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
+                  const [d, m, y] = datePart.split('-');
+                  dueDate = `${y}-${m}-${d}`;
+                }
+                if (/^\d{2}:\d{2}$/.test(timePart)) {
+                  dueTime = timePart;
+                }
+              }
+              if (dueDate) {
+                await env.DB.prepare(`
+                  INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                    due_date = excluded.due_date,
+                    due_time = excluded.due_time,
+                    title = excluded.title,
+                    description = excluded.description,
+                    status = 'pending'
+                `).bind(
+                  remId,
+                  `Interview: ${body.company}`,
+                  'INTERNSHIP',
+                  'exam',
+                  dueDate,
+                  dueTime,
+                  'high',
+                  'pending',
+                  1,
+                  `Interview session scheduled for ${body.company} (${body.positionNote || 'Intern'}).`
+                ).run();
+              }
+            }
+
             return json({ success: true });
           } catch (e) {
             console.error('POST /api/interns D1 error:', e);

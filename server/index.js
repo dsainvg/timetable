@@ -95,7 +95,7 @@ try {
         interviewDate: r.interview_selection_date || '',
         positionNote: title,
         sortingDone: false,
-        myStatus: 'not_applied',
+        myStatus: r.application_status === 'Y' ? 'applied' : 'not_applied',
         notes: '',
         jnfUrl: r.jnf_url || '',
         jnfId: r.jnf_id || '',
@@ -204,7 +204,52 @@ app.post('/api/interns', (req, res) => {
   const role = req.body;
   const existingIdx = internRolesStore.findIndex((r) => r.id === role.id);
   if (existingIdx >= 0) {
-    internRolesStore[existingIdx] = { ...internRolesStore[existingIdx], ...role };
+    const updatedRole = { ...internRolesStore[existingIdx], ...role };
+    internRolesStore[existingIdx] = updatedRole;
+
+    // Synchronize with remindersStore
+    const remId = 'rem-interview-' + role.id;
+    if (!role.interviewDate) {
+      remindersStore = remindersStore.filter((r) => r.id !== remId);
+    } else {
+      let dueDate = '';
+      let dueTime = '23:59';
+      const parts = (role.interviewDate || '').trim().split(/\s+/);
+      if (parts.length >= 1) {
+        const datePart = parts[0];
+        const timePart = parts[1] || '23:59';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          dueDate = datePart;
+        } else if (/^\d{2}-\d{2}-\d{4}$/.test(datePart)) {
+          const [d, m, y] = datePart.split('-');
+          dueDate = `${y}-${m}-${d}`;
+        }
+        if (/^\d{2}:\d{2}$/.test(timePart)) {
+          dueTime = timePart;
+        }
+      }
+      if (dueDate) {
+        const existingRemIdx = remindersStore.findIndex((r) => r.id === remId);
+        const newRem = {
+          id: remId,
+          title: `Interview: ${role.company}`,
+          subject_code: 'INTERNSHIP',
+          type: 'exam',
+          due_date: dueDate,
+          due_time: dueTime,
+          priority: 'high',
+          status: 'pending',
+          send_email: true,
+          description: `Interview session scheduled for ${role.company} (${role.positionNote || 'Intern'}).`,
+          created_at: new Date().toISOString()
+        };
+        if (existingRemIdx >= 0) {
+          remindersStore[existingRemIdx] = { ...remindersStore[existingRemIdx], ...newRem };
+        } else {
+          remindersStore.unshift(newRem);
+        }
+      }
+    }
   }
   res.json({ success: true, roles: internRolesStore });
 });
