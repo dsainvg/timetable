@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
-  CheckCircle2,
   XCircle,
-  AlertCircle,
   Plus,
   Trash2,
   BookOpen,
@@ -12,7 +10,7 @@ import {
   Ban,
   Sparkles,
 } from 'lucide-react';
-import { COURSES } from '../data/timetableData';
+import { COURSES, SCHEDULE_GRID } from '../data/timetableData';
 import { AttendanceRecord, AttendanceStatus } from '../services/api';
 
 interface AttendanceTrackerProps {
@@ -30,33 +28,38 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Form State
-  const [selectedSub, setSelectedSub] = useState<string>('CS31007');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [selectedStatus, setSelectedStatus] = useState<AttendanceStatus>('attended');
-  const [selectedNote, setSelectedNote] = useState<string>('');
-
-  // Calculate today's day name to offer quick logging for today's classes
+  // Calculate today's day name and today's scheduled classes from timetable
   const now = new Date();
   const DAY_MAP: Record<number, string> = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thur', 5: 'Fri' };
   const todayDayName = DAY_MAP[now.getDay()] || '';
 
-  // Get subjects in curriculum
+  // Get unique subject codes scheduled for TODAY
+  const todaySlots = todayDayName
+    ? SCHEDULE_GRID.filter((s) => s.day === todayDayName)
+    : [];
+  const todaySubjectCodes = Array.from(new Set(todaySlots.map((s) => s.subjectCode)));
+
+  // Class selection for logging (strictly today's classes if available, or all courses on weekends)
+  const availableLogSubjects = todaySubjectCodes.length > 0 ? todaySubjectCodes : Object.keys(COURSES);
+
+  // Form State
+  const [selectedSub, setSelectedSub] = useState<string>(availableLogSubjects[0] || 'CS31007');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedStatus, setSelectedStatus] = useState<AttendanceStatus>('attended');
+  const [selectedNote, setSelectedNote] = useState<string>('');
+
+  // Get all course codes in curriculum for stats overview
   const courseCodes = Object.keys(COURSES);
 
-  // Compute Per-Subject Stats
+  // Compute Per-Subject Stats (Simple Attended, Missed, Cancelled, Pct)
   const subjectStats = courseCodes.map((subCode) => {
     const subLogs = records.filter((r) => r.subject_code === subCode);
     const attended = subLogs.filter((r) => r.status === 'attended').length;
     const missed = subLogs.filter((r) => r.status === 'missed').length;
     const cancelled = subLogs.filter((r) => r.status === 'cancelled').length;
 
-    const totalHeld = attended + missed; // Cancelled does not count against total held classes
+    const totalHeld = attended + missed; // Cancelled does not count against held lectures
     const pct = totalHeld > 0 ? Math.round((attended / totalHeld) * 100) : 100;
-
-    // Calculate safe bunks or required classes to reach 75%
-    // 0.75 <= A / (A + M + X) => A >= 0.75(A + M + X) => 0.25A >= 0.75M + 0.75X => X <= (0.25A - 0.75M) / 0.75 = A/3 - M
-    const safeBunks = Math.floor(attended / 3) - missed;
 
     return {
       subCode,
@@ -66,7 +69,6 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       cancelled,
       totalHeld,
       pct,
-      safeBunks,
       subLogs,
     };
   });
@@ -130,12 +132,15 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             </h2>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
-            Track lectures attended, missed bunks, and official cancellations with 75% safety analysis.
+            Quickly log today's classes, track lectures attended/missed, and keep record of professor cancellations.
           </p>
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setSelectedSub(availableLogSubjects[0] || 'CS31007');
+            setShowAddModal(true);
+          }}
           style={{
             background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
             border: 'none', borderRadius: 12, padding: '10px 18px',
@@ -149,122 +154,133 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         </button>
       </div>
 
-      {/* ─── Quick Today's Class Logger Bar ─── */}
+      {/* ─── Today's Class Quick Logger ─── */}
       <div style={{
         background: 'rgba(15,23,42,0.7)',
         border: '1px solid rgba(30,41,59,0.8)',
         borderRadius: 16, padding: '16px 20px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <Sparkles size={16} style={{ color: '#f59e0b' }} />
-          <span style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc', letterSpacing: '0.02em' }}>
-            Quick Log Today's Attendance ({todayDayName || 'Today'})
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Sparkles size={16} style={{ color: '#f59e0b' }} />
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc', letterSpacing: '0.02em' }}>
+              Today's Scheduled Classes ({todayDayName || 'Weekend'})
+            </span>
+          </div>
+
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+            {todaySubjectCodes.length > 0 ? `${todaySubjectCodes.length} classes scheduled today` : 'No timetable classes today'}
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-          {courseCodes.map((subCode) => {
-            const course = COURSES[subCode];
-            const todayLog = records.find(
-              (r) => r.subject_code === subCode && r.date === new Date().toISOString().split('T')[0]
-            );
+        {todaySubjectCodes.length === 0 ? (
+          <div style={{ padding: '16px', background: 'rgba(30,41,59,0.4)', borderRadius: 12, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+            🎉 No classes scheduled on your timetable for today! (Weekend / Free day).
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+            {todaySubjectCodes.map((subCode) => {
+              const course = COURSES[subCode];
+              const todayLog = records.find(
+                (r) => r.subject_code === subCode && r.date === new Date().toISOString().split('T')[0]
+              );
 
-            return (
-              <div
-                key={subCode}
-                style={{
-                  background: 'rgba(30,41,59,0.5)',
-                  border: '1px solid rgba(51,65,85,0.6)',
-                  borderRadius: 12, padding: '12px 14px',
-                  display: 'flex', flexDirection: 'column', gap: 10,
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: course?.color || '#818cf8' }}>
-                    {course?.shortName || subCode}
-                  </span>
-                  {todayLog ? (
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
-                      background: todayLog.status === 'attended' ? 'rgba(74,222,128,0.15)' : todayLog.status === 'missed' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
-                      color: todayLog.status === 'attended' ? '#4ade80' : todayLog.status === 'missed' ? '#f87171' : '#fbbf24',
-                      border: `1px solid ${todayLog.status === 'attended' ? 'rgba(74,222,128,0.3)' : todayLog.status === 'missed' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                    }}>
-                      {todayLog.status.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 10, color: '#64748b' }}>Not Marked</span>
-                  )}
+              return (
+                <div
+                  key={subCode}
+                  style={{
+                    background: 'rgba(30,41,59,0.5)',
+                    border: '1px solid rgba(51,65,85,0.6)',
+                    borderRadius: 12, padding: '12px 14px',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: course?.color || '#818cf8' }}>
+                        {course?.shortName || subCode}
+                      </span>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{course?.name}</div>
+                    </div>
+
+                    {todayLog ? (
+                      <span style={{
+                        fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                        background: todayLog.status === 'attended' ? 'rgba(74,222,128,0.15)' : todayLog.status === 'missed' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
+                        color: todayLog.status === 'attended' ? '#4ade80' : todayLog.status === 'missed' ? '#f87171' : '#fbbf24',
+                        border: `1px solid ${todayLog.status === 'attended' ? 'rgba(74,222,128,0.3)' : todayLog.status === 'missed' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      }}>
+                        {todayLog.status.toUpperCase()}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, color: '#64748b' }}>Not Marked</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => handleQuickLog(subCode, 'attended')}
+                      style={{
+                        flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        background: 'rgba(74,222,128,0.12)', color: '#4ade80',
+                        border: '1px solid rgba(74,222,128,0.3)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      }}
+                      title="Mark Present"
+                    >
+                      <Check size={13} />
+                      <span>Present</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleQuickLog(subCode, 'missed')}
+                      style={{
+                        flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        background: 'rgba(239,68,68,0.12)', color: '#f87171',
+                        border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      }}
+                      title="Mark Missed"
+                    >
+                      <XCircle size={13} />
+                      <span>Missed</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleQuickLog(subCode, 'cancelled')}
+                      style={{
+                        padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        background: 'rgba(245,158,11,0.12)', color: '#fbbf24',
+                        border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                      title="Mark Class Cancelled"
+                    >
+                      <Ban size={13} />
+                    </button>
+                  </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    onClick={() => handleQuickLog(subCode, 'attended')}
-                    style={{
-                      flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                      background: 'rgba(74,222,128,0.12)', color: '#4ade80',
-                      border: '1px solid rgba(74,222,128,0.3)', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    }}
-                    title="Mark Present"
-                  >
-                    <Check size={13} />
-                    <span>Present</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleQuickLog(subCode, 'missed')}
-                    style={{
-                      flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                      background: 'rgba(239,68,68,0.12)', color: '#f87171',
-                      border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    }}
-                    title="Mark Bunked / Missed"
-                  >
-                    <XCircle size={13} />
-                    <span>Missed</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleQuickLog(subCode, 'cancelled')}
-                    style={{
-                      padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                      background: 'rgba(245,158,11,0.12)', color: '#fbbf24',
-                      border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                    title="Mark Class Cancelled"
-                  >
-                    <Ban size={13} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ─── Per-Course Attendance Cards ─── */}
+      {/* ─── Course-wise Attendance Cards ─── */}
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 800, color: '#f8fafc', marginBottom: 14 }}>
-          Course-wise Attendance & Bunk Allowance (75% Target)
+          Course-wise Attendance Breakdown
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {subjectStats.map((st) => {
-            const isDanger = st.pct < 75;
-            const isWarning = st.pct >= 75 && st.pct < 80;
-            const color = isDanger ? '#ef4444' : isWarning ? '#f59e0b' : '#4ade80';
-
             return (
               <div
                 key={st.subCode}
                 style={{
                   background: 'rgba(15,23,42,0.7)',
-                  border: isDanger ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(30,41,59,0.8)',
+                  border: '1px solid rgba(30,41,59,0.8)',
                   borderRadius: 16, padding: '18px 20px',
-                  boxShadow: isDanger ? '0 0 20px rgba(239,68,68,0.15)' : 'none',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -276,7 +292,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 20, fontWeight: 900, color, fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#818cf8', fontFamily: 'monospace' }}>
                       {st.pct}%
                     </div>
                     <div style={{ fontSize: 10, color: '#64748b' }}>
@@ -289,7 +305,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                 <div style={{ height: 6, background: 'rgba(30,41,59,0.9)', borderRadius: 10, overflow: 'hidden', marginBottom: 14 }}>
                   <div style={{
                     height: '100%', width: `${st.pct}%`,
-                    background: color, borderRadius: 10, transition: 'width 0.4s ease',
+                    background: '#6366f1', borderRadius: 10, transition: 'width 0.4s ease',
                   }} />
                 </div>
 
@@ -298,27 +314,6 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   <span>🟢 Attended: <strong>{st.attended}</strong></span>
                   <span>🔴 Missed: <strong>{st.missed}</strong></span>
                   <span>🟡 Cancelled: <strong>{st.cancelled}</strong></span>
-                </div>
-
-                {/* Safe Bunk Indicator */}
-                <div style={{
-                  marginTop: 12, padding: '8px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-                  background: st.safeBunks >= 0 ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.12)',
-                  color: st.safeBunks >= 0 ? '#4ade80' : '#f87171',
-                  border: `1px solid ${st.safeBunks >= 0 ? 'rgba(74,222,128,0.25)' : 'rgba(239,68,68,0.3)'}`,
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}>
-                  {st.safeBunks >= 0 ? (
-                    <>
-                      <CheckCircle2 size={14} />
-                      <span>Can bunk <strong>{st.safeBunks}</strong> more class{st.safeBunks !== 1 ? 'es' : ''} safely</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle size={14} />
-                      <span>Must attend next <strong>{Math.abs(st.safeBunks * 3)}</strong> classes to hit 75%!</span>
-                    </>
-                  )}
                 </div>
               </div>
             );
@@ -352,12 +347,12 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   {mostMissed.course?.name || mostMissed.subCode}
                 </div>
                 <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 2 }}>
-                  <strong>{mostMissed.missed}</strong> lectures missed ({mostMissed.pct}% current attendance)
+                  <strong>{mostMissed.missed}</strong> lectures missed
                 </div>
               </>
             ) : (
               <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 2 }}>
-                🎉 No missed classes logged yet! Perfect streak.
+                🎉 No missed classes logged!
               </div>
             )}
           </div>
@@ -384,7 +379,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
               {totalCancelled} Professor Cancellations
             </div>
             <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 2 }}>
-              Cancelled lectures do not penalize your 75% criteria.
+              Cancelled lectures kept in separate log.
             </div>
           </div>
         </div>
@@ -406,7 +401,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             <div style={{ fontSize: 11, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Overall Semester Attendance
             </div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: overallPct >= 75 ? '#4ade80' : '#f87171', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#4ade80', fontFamily: 'monospace' }}>
               {overallPct}% ({totalAttended}/{totalHeldSemester} held)
             </div>
             <div style={{ fontSize: 12, color: '#c7d2fe', marginTop: 2 }}>
@@ -533,7 +528,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
         )}
       </div>
 
-      {/* ─── Add Attendance Modal ─── */}
+      {/* ─── Add Attendance Modal (Strictly Today's Classes in dropdown) ─── */}
       {showAddModal && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
@@ -546,13 +541,13 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
             boxShadow: '0 25px 50px rgba(0,0,0,0.6)',
           }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>
-              Log Class Attendance
+              Log Attendance Entry
             </h3>
 
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 6 }}>
-                  Course / Subject
+                  Course / Subject ({todaySubjectCodes.length > 0 ? `Today's Timetable (${todayDayName})` : 'All Courses'})
                 </label>
                 <select
                   value={selectedSub}
@@ -562,7 +557,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                     borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#f8fafc', fontWeight: 600,
                   }}
                 >
-                  {courseCodes.map((c) => (
+                  {availableLogSubjects.map((c) => (
                     <option key={c} value={c}>
                       [{COURSES[c]?.shortName || c}] {COURSES[c]?.name}
                     </option>
