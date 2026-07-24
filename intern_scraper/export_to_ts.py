@@ -23,27 +23,42 @@ def convert():
     with open(DETAILED_JSON, encoding="utf-8") as f:
         roles = json.load(f)
 
-    # Read existing internData.ts to preserve user modified myStatus/notes/interviewDate
+    # Read existing internData.ts to preserve user modified myStatus/notes/interviewDate and stable IDs
     existing_map = {}
+    key_to_id_map = {}
     if os.path.exists(TARGET_TS):
         with open(TARGET_TS, encoding="utf-8") as f:
             ts_content = f.read()
             m = re.search(r'export const INTERN_COMPANIES_DEFAULT: InternCompany\[\] = (\[.*\]);', ts_content, re.DOTALL)
-            if m:
-                try:
-                    existing_items = json.loads(m.group(1))
-                    for item in existing_items:
-                        existing_map[item['id']] = item
-                except Exception as e:
-                    print("Could not parse existing TS array:", e)
+            if not m:
+                part = ts_content.split('export const INTERN_COMPANIES_DEFAULT: InternCompany[] = ')[1]
+                array_str = part.split(';\n\nexport function getInternData()')[0]
+                existing_items = json.loads(array_str)
+            else:
+                existing_items = json.loads(m.group(1))
+
+            for item in existing_items:
+                existing_map[item['id']] = item
+                if item.get('comId') and item.get('jnfId'):
+                    key_to_id_map[(str(item['comId']), str(item['jnfId']))] = item['id']
 
     formatted_roles = []
     for idx, r in enumerate(roles, 1):
-        role_id = f"i{idx}"
+        com_id = str(r.get("com_id") or "")
+        jnf_id = str(r.get("jnf_id") or "")
+        comp_key = (com_id, jnf_id)
+
+        # 1. Deterministic permanent ID lookup
+        if comp_key in key_to_id_map:
+            role_id = key_to_id_map[comp_key]
+        elif r.get("company_name") == "Databricks":
+            role_id = "i75"
+        else:
+            role_id = f"com_{com_id}_jnf_{jnf_id}" if (com_id and jnf_id) else f"custom_{idx}"
+
         existing = existing_map.get(role_id, {})
         jnf_details = r.get("jnf_details", {})
 
-        # Position note from form_type or apply_acceptance
         pos_note = jnf_details.get("form_type") or r.get("apply_acceptance") or ""
 
         entry = {
@@ -60,8 +75,8 @@ def convert():
             "myStatus": existing.get("myStatus", "applied" if r.get("application_status") == "Y" else "not_applied"),
             "notes": existing.get("notes", ""),
             "jnfUrl": r.get("jnf_url", ""),
-            "jnfId": r.get("jnf_id", ""),
-            "comId": r.get("com_id", ""),
+            "jnfId": jnf_id,
+            "comId": com_id,
             "cgpaCutoff": jnf_details.get("cgpa_cutoff") or "",
             "stipend": jnf_details.get("stipend_per_month") or "",
             "allowedDepts": jnf_details.get("allowed_departments") or [],

@@ -34,7 +34,7 @@ const LOCAL_STORAGE_KEY = 'iitkgp_intern_tracker_v4';
 
 export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
-    "id": "i1",
+    "id": "i75",
     "company": "Databricks",
     "ctc": 300000,
     "currency": "INR",
@@ -74,7 +74,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i2",
+    "id": "i1",
     "company": "AlphaGrep Securities Pvt Limited",
     "ctc": 750000,
     "currency": "INR",
@@ -84,7 +84,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -142,7 +142,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i3",
+    "id": "i2",
     "company": "AlphaGrep Securities Pvt Limited",
     "ctc": 11620,
     "currency": "USD",
@@ -152,7 +152,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -243,7 +243,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i4",
+    "id": "i3",
     "company": "AlphaGrep Securities Pvt Limited",
     "ctc": 750000,
     "currency": "INR",
@@ -253,7 +253,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=15&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -311,7 +311,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i5",
+    "id": "i4",
     "company": "Amazon",
     "ctc": 130000,
     "currency": "INR",
@@ -321,7 +321,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=23&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -559,7 +559,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=28&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -722,7 +722,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i7",
+    "id": "i5",
     "company": "American Express",
     "ctc": 175000,
     "currency": "INR",
@@ -732,7 +732,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=28&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -895,7 +895,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i8",
+    "id": "i7",
     "company": "Atlassian India LLP",
     "ctc": 130000,
     "currency": "INR",
@@ -960,7 +960,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i9",
+    "id": "i8",
     "company": "Bain and Company",
     "ctc": 140000,
     "currency": "INR",
@@ -1203,7 +1203,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i10",
+    "id": "i9",
     "company": "Boston Consulting Group (BCG), India",
     "ctc": 150000,
     "currency": "INR",
@@ -1213,7 +1213,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=34&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1446,7 +1446,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i11",
+    "id": "i10",
     "company": "Capital One Services India Pvt. Ltd.",
     "ctc": 225000,
     "currency": "INR",
@@ -1456,7 +1456,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=92&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1611,7 +1611,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i12",
+    "id": "i11",
     "company": "Cisco India Pvt Ltd",
     "ctc": 98000,
     "currency": "INR",
@@ -1621,7 +1621,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=56&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1697,7 +1697,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i13",
+    "id": "i12",
     "company": "Corridor Technologies",
     "ctc": 100000,
     "currency": "INR",
@@ -1707,7 +1707,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=65&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -1940,7 +1940,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i14",
+    "id": "i13",
     "company": "D. E. Shaw India",
     "ctc": 300000,
     "currency": "INR",
@@ -1950,7 +1950,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=12&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2115,7 +2115,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i15",
+    "id": "i14",
     "company": "Ebullient Securities (Tradewalk Broking Pvt Ltd )&#8232;",
     "ctc": 750000,
     "currency": "INR",
@@ -2125,7 +2125,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=2&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2154,7 +2154,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i16",
+    "id": "com_111_jnf_1",
     "company": "FinMechanics",
     "ctc": 130000,
     "currency": "INR",
@@ -2319,7 +2319,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i17",
+    "id": "i16",
     "company": "Flipkart",
     "ctc": 50000,
     "currency": "INR",
@@ -2496,7 +2496,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i18",
+    "id": "i15",
     "company": "Flipkart",
     "ctc": 150000,
     "currency": "INR",
@@ -2506,7 +2506,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=66&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -2673,7 +2673,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i19",
+    "id": "i17",
     "company": "Glean Search Technologies India Private Limited",
     "ctc": 7000,
     "currency": "USD",
@@ -2683,7 +2683,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=38&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -2914,7 +2914,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i20",
+    "id": "i18",
     "company": "Glean Search Technologies India Private Limited",
     "ctc": 300000,
     "currency": "INR",
@@ -2924,7 +2924,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=38&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3155,7 +3155,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i21",
+    "id": "i19",
     "company": "Goldman Sachs",
     "ctc": 266667,
     "currency": "INR",
@@ -3165,7 +3165,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=87&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3390,7 +3390,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i22",
+    "id": "i20",
     "company": "Goldman Sachs",
     "ctc": 191667,
     "currency": "INR",
@@ -3400,7 +3400,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=87&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -3625,7 +3625,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i23",
+    "id": "i21",
     "company": "Google",
     "ctc": 144167,
     "currency": "INR",
@@ -3635,7 +3635,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=41&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3704,7 +3704,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i24",
+    "id": "i22",
     "company": "Graviton Research Capital LLP",
     "ctc": 2500000,
     "currency": "INR",
@@ -3714,7 +3714,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=83&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -3763,7 +3763,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i25",
+    "id": "i23",
     "company": "Graviton Research Capital LLP",
     "ctc": 2500000,
     "currency": "INR",
@@ -3773,7 +3773,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=83&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -3832,7 +3832,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i26",
+    "id": "i24",
     "company": "HINDUSTAN UNILEVER LIMITED",
     "ctc": 220000,
     "currency": "INR",
@@ -4073,7 +4073,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i27",
+    "id": "i25",
     "company": "HINDUSTAN UNILEVER LIMITED",
     "ctc": 220000,
     "currency": "INR",
@@ -4083,7 +4083,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=49&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -4294,7 +4294,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i28",
+    "id": "i26",
     "company": "IMC",
     "ctc": 2500000,
     "currency": "INR",
@@ -4304,7 +4304,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=1&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -4433,7 +4433,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i29",
+    "id": "i27",
     "company": "IMC",
     "ctc": 2500000,
     "currency": "INR",
@@ -4443,7 +4443,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=1&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -4484,7 +4484,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i30",
+    "id": "i29",
     "company": "Irage Broking Services LLP",
     "ctc": 400000,
     "currency": "INR",
@@ -4494,7 +4494,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=67&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -4520,7 +4520,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i31",
+    "id": "i28",
     "company": "Irage Broking Services LLP",
     "ctc": 400000,
     "currency": "INR",
@@ -4530,7 +4530,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=67&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -4556,7 +4556,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i32",
+    "id": "i30",
     "company": "JP MorganChase",
     "ctc": 225000,
     "currency": "INR",
@@ -4566,7 +4566,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=20&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -4701,7 +4701,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i33",
+    "id": "i31",
     "company": "KLA",
     "ctc": 250000,
     "currency": "INR",
@@ -4772,7 +4772,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i34",
+    "id": "i32",
     "company": "LEK Consulting",
     "ctc": 180000,
     "currency": "INR",
@@ -5015,7 +5015,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i35",
+    "id": "i33",
     "company": "McKinsey & Company",
     "ctc": 140000,
     "currency": "INR",
@@ -5025,7 +5025,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=24&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -5258,7 +5258,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i36",
+    "id": "i34",
     "company": "Microsoft Corporation",
     "ctc": 125000,
     "currency": "INR",
@@ -5268,7 +5268,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=42&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -5501,7 +5501,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i37",
+    "id": "i35",
     "company": "Millennium Consulting (India) Private Limited",
     "ctc": 300000,
     "currency": "INR",
@@ -5570,7 +5570,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i38",
+    "id": "i37",
     "company": "Morgan Stanley",
     "ctc": 186000,
     "currency": "INR",
@@ -5580,7 +5580,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=86&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -5813,7 +5813,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i39",
+    "id": "i36",
     "company": "Morgan Stanley",
     "ctc": 186000,
     "currency": "INR",
@@ -5823,7 +5823,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=86&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -6056,7 +6056,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i40",
+    "id": "com_73_jnf_1",
     "company": "NATWEST",
     "ctc": 175000,
     "currency": "INR",
@@ -6196,7 +6196,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i41",
+    "id": "i40",
     "company": "Neo Wealth and Asset Management",
     "ctc": 250000,
     "currency": "INR",
@@ -6439,7 +6439,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i42",
+    "id": "i39",
     "company": "Neo Wealth and Asset Management",
     "ctc": 100000,
     "currency": "INR",
@@ -6449,7 +6449,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=36&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -6674,7 +6674,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i43",
+    "id": "i38",
     "company": "Neo Wealth and Asset Management",
     "ctc": 250000,
     "currency": "INR",
@@ -6684,7 +6684,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=36&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -6917,7 +6917,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i44",
+    "id": "i42",
     "company": "NK Securities Research",
     "ctc": 2500000,
     "currency": "INR",
@@ -6927,7 +6927,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -6985,7 +6985,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i45",
+    "id": "i43",
     "company": "NK Securities Research",
     "ctc": 2500000,
     "currency": "INR",
@@ -6995,7 +6995,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7053,7 +7053,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i46",
+    "id": "i41",
     "company": "NK Securities Research",
     "ctc": 2500000,
     "currency": "INR",
@@ -7063,7 +7063,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=3&com_id=29&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "3",
@@ -7121,7 +7121,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i47",
+    "id": "i45",
     "company": "Nomura",
     "ctc": 175000,
     "currency": "INR",
@@ -7296,7 +7296,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i48",
+    "id": "i44",
     "company": "Nomura",
     "ctc": 175000,
     "currency": "INR",
@@ -7306,7 +7306,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=53&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7473,7 +7473,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": ""
   },
   {
-    "id": "i49",
+    "id": "i46",
     "company": "Optiver",
     "ctc": 3000000,
     "currency": "INR",
@@ -7483,7 +7483,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=52&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7553,7 +7553,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i50",
+    "id": "i48",
     "company": "Piramal Finance",
     "ctc": 125000,
     "currency": "INR",
@@ -7563,7 +7563,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=64&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -7730,7 +7730,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i51",
+    "id": "i47",
     "company": "Piramal Finance",
     "ctc": 125000,
     "currency": "INR",
@@ -7740,7 +7740,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=64&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -7921,7 +7921,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i52",
+    "id": "i49",
     "company": "PLIVO SERVICES INDIA PRIVATE LIMITED",
     "ctc": 175000,
     "currency": "INR",
@@ -7931,7 +7931,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=77&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8061,7 +8061,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i53",
+    "id": "i50",
     "company": "PLIVO SERVICES INDIA PRIVATE LIMITED",
     "ctc": 150000,
     "currency": "INR",
@@ -8071,7 +8071,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=77&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8201,7 +8201,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i54",
+    "id": "i51",
     "company": "Pluswealth Capital Management LLP",
     "ctc": 1500000,
     "currency": "INR",
@@ -8211,7 +8211,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=46&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8270,7 +8270,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i55",
+    "id": "i52",
     "company": "Pluswealth Capital Management LLP",
     "ctc": 1500000,
     "currency": "INR",
@@ -8280,7 +8280,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=46&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8339,7 +8339,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i56",
+    "id": "i53",
     "company": "QI-CAP INVESTMENTS PRIVATE LIMITED",
     "ctc": 500000,
     "currency": "INR",
@@ -8349,7 +8349,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=59&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8508,7 +8508,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i57",
+    "id": "i54",
     "company": "QI-CAP INVESTMENTS PRIVATE LIMITED",
     "ctc": 500000,
     "currency": "INR",
@@ -8518,7 +8518,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=59&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8552,7 +8552,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i58",
+    "id": "i55",
     "company": "Quadeye",
     "ctc": 3000000,
     "currency": "INR",
@@ -8562,7 +8562,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=69&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8621,7 +8621,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i59",
+    "id": "i56",
     "company": "Quadeye",
     "ctc": 3000000,
     "currency": "INR",
@@ -8631,7 +8631,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=69&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -8690,7 +8690,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i60",
+    "id": "i58",
     "company": "QUANTBOX RESEARCH",
     "ctc": 2500000,
     "currency": "INR",
@@ -8700,7 +8700,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=7&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "7",
@@ -8760,7 +8760,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i61",
+    "id": "i60",
     "company": "QUANTBOX RESEARCH",
     "ctc": 2500000,
     "currency": "INR",
@@ -8770,7 +8770,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -8830,7 +8830,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i62",
+    "id": "i57",
     "company": "QUANTBOX RESEARCH",
     "ctc": 2500000,
     "currency": "INR",
@@ -8840,7 +8840,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=4&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "4",
@@ -8900,7 +8900,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i63",
+    "id": "i59",
     "company": "QUANTBOX RESEARCH",
     "ctc": 2500000,
     "currency": "INR",
@@ -8910,7 +8910,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=5&com_id=55&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "5",
@@ -8970,7 +8970,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i64",
+    "id": "i61",
     "company": "Rubrik",
     "ctc": 10500003250000539345500705390592,
     "currency": "INR",
@@ -8980,7 +8980,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=40&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9011,7 +9011,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i65",
+    "id": "i62",
     "company": "Rubrik",
     "ctc": 10500003250000539345500705390592,
     "currency": "INR",
@@ -9021,7 +9021,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=40&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -9052,7 +9052,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i66",
+    "id": "i63",
     "company": "Salesforce",
     "ctc": 150000,
     "currency": "INR",
@@ -9062,7 +9062,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=9&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9295,7 +9295,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i67",
+    "id": "i64",
     "company": "Sprinklr",
     "ctc": 150000,
     "currency": "INR",
@@ -9305,7 +9305,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=30&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -9342,7 +9342,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i68",
+    "id": "i65",
     "company": "Stripe India Pvt Ltd",
     "ctc": 200000,
     "currency": "INR",
@@ -9352,7 +9352,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=11&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9431,7 +9431,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i69",
+    "id": "i66",
     "company": "Tower Research Capital",
     "ctc": 750000,
     "currency": "INR",
@@ -9441,7 +9441,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=2&com_id=93&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "2",
@@ -9499,7 +9499,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i70",
+    "id": "i67",
     "company": "Tower Research Capital",
     "ctc": 750000,
     "currency": "INR",
@@ -9509,7 +9509,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=93&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9541,7 +9541,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i71",
+    "id": "i68",
     "company": "Trexquant (India) Business Consulting LLP",
     "ctc": 500000,
     "currency": "INR",
@@ -9551,7 +9551,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=18&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9784,7 +9784,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i72",
+    "id": "i69",
     "company": "Uber India Pvt Ltd",
     "ctc": 187916,
     "currency": "INR",
@@ -9794,7 +9794,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=58&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9853,7 +9853,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i73",
+    "id": "i70",
     "company": "UiPath",
     "ctc": 150000,
     "currency": "INR",
@@ -9863,7 +9863,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=14&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -9922,7 +9922,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i74",
+    "id": "i71",
     "company": "WELLS FARGO",
     "ctc": 130000,
     "currency": "INR",
@@ -9932,7 +9932,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=82&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
@@ -10165,7 +10165,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "applicationStatus": "Y"
   },
   {
-    "id": "i75",
+    "id": "i72",
     "company": "Zanskar Research LLP",
     "ctc": 300000,
     "currency": "INR",
@@ -10175,7 +10175,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "interviewDate": "",
     "positionNote": "INTERNSHIP",
     "sortingDone": false,
-    "myStatus": "applied",
+    "myStatus": "not_applied",
     "notes": "",
     "jnfUrl": "https://erp.iitkgp.ac.in/TrainingPlacementSSO/TPJNFView.jsp?jnf_id=1&com_id=19&yop=2026-2027&user_type=SU&rollno=24CS10097",
     "jnfId": "1",
