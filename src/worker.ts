@@ -335,6 +335,16 @@ async function ensureTables(db: any) {
         )
       `),
       db.prepare(`
+        CREATE TABLE IF NOT EXISTS attendance_records (
+          id TEXT PRIMARY KEY,
+          subject_code TEXT NOT NULL,
+          date TEXT NOT NULL,
+          status TEXT NOT NULL,
+          note TEXT DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
         CREATE TABLE IF NOT EXISTS sent_email_logs (
           id TEXT PRIMARY KEY,
           reminder_id TEXT NOT NULL,
@@ -547,19 +557,116 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
       }).join('')
     : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks, tests or interviews in the next 24 hours.</div></div>';
 
+  // 4. Fetch Attendance records & Missed Class Alerts
+  let attendanceHtml = '';
+  let missedAlertsHtml = '';
+  try {
+    const { results: attLogs } = await env.DB.prepare(
+      "SELECT * FROM attendance_records ORDER BY date DESC, created_at DESC"
+    ).all();
+    const attList = (attLogs || []) as any[];
+
+    // Calculate per-subject stats
+    const stats: Record<string, { attended: number; missed: number; cancelled: number }> = {};
+    for (const log of attList) {
+      if (!stats[log.subject_code]) {
+        stats[log.subject_code] = { attended: 0, missed: 0, cancelled: 0 };
+      }
+      if (log.status === 'attended') stats[log.subject_code].attended++;
+      else if (log.status === 'missed') stats[log.subject_code].missed++;
+      else if (log.status === 'cancelled') stats[log.subject_code].cancelled++;
+    }
+
+    // Check if any subject scheduled today had its previous class missed!
+    const missedTodaySubs: string[] = [];
+    for (const slot of todaySlots) {
+      const subCode = slot.subjectCode;
+      const prevLog = attList.find(l => l.subject_code === subCode);
+      if (prevLog && prevLog.status === 'missed') {
+        if (!missedTodaySubs.includes(subCode)) {
+          missedTodaySubs.push(subCode);
+        }
+      }
+    }
+
+    if (missedTodaySubs.length > 0) {
+      missedAlertsHtml = `
+        <div class="card" style="border-left: 4px solid #ef4444; background: rgba(239,68,68,0.1); margin-bottom:16px;">
+          <div class="card-title" style="color:#f87171; font-weight:800;">⚠️ MISSED PREVIOUS CLASS WARNING</div>
+          <p style="margin:6px 0 0; font-size:12px; color:#fca5a5;">
+            Notice: You missed the previous class for: <strong>${missedTodaySubs.map(getSubjectDisplayName).join(', ')}</strong>.
+            Make sure to attend today's lecture to keep your attendance above 75%!
+          </p>
+        </div>
+      `;
+    }
+
+    // Find most missed subject
+    let mostMissedSub = '';
+    let maxMissed = 0;
+    for (const [sub, st] of Object.entries(stats)) {
+      if (st.missed > maxMissed) {
+        maxMissed = st.missed;
+        mostMissedSub = sub;
+      }
+    }
+
+    if (Object.keys(stats).length > 0) {
+      const summaryRows = Object.entries(stats).map(([sub, st]) => {
+        const total = st.attended + st.missed;
+        const pct = total > 0 ? Math.round((st.attended / total) * 100) : 100;
+        const badgeColor = pct >= 75 ? '#4ade80' : '#f87171';
+        return `
+          <tr style="border-bottom:1px solid #1e293b;">
+            <td style="padding:8px; font-weight:700; color:#f8fafc;">${getSubjectDisplayName(sub)}</td>
+            <td style="padding:8px; color:#4ade80; text-align:center;">${st.attended}</td>
+            <td style="padding:8px; color:#f87171; text-align:center;">${st.missed}</td>
+            <td style="padding:8px; color:#fbbf24; text-align:center;">${st.cancelled}</td>
+            <td style="padding:8px; font-weight:800; color:${badgeColor}; text-align:center;">${pct}%</td>
+          </tr>
+        `;
+      }).join('');
+
+      attendanceHtml = `
+        <h4 style="color:#f8fafc; margin:24px 0 10px; font-size:14px;">📊 Attendance & Bunk Tracker Stats:</h4>
+        ${mostMissedSub ? `<p style="font-size:12px; color:#fb923c; margin-bottom:10px;">🚨 <strong>Most Missed Class:</strong> ${getSubjectDisplayName(mostMissedSub)} (${maxMissed} missed lectures)</p>` : ''}
+        <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left; background:rgba(15,23,42,0.6); border-radius:8px; overflow:hidden;">
+          <thead>
+            <tr style="background:#1e293b; color:#94a3b8;">
+              <th style="padding:8px;">Subject</th>
+              <th style="padding:8px; text-align:center;">Present</th>
+              <th style="padding:8px; text-align:center;">Missed</th>
+              <th style="padding:8px; text-align:center;">Cancelled</th>
+              <th style="padding:8px; text-align:center;">Pct %</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryRows}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch (e) {
+    console.error('Failed to query attendance for daily email summary:', e);
+  }
+
   const html = buildHtmlEmail({
     title: '🌅 Daily Summary & 24-Hour Horizon Report',
     subtitle: `Next 24 Hours Window (${todayStr} to ${tomorrowStr}) • Roll No: 24CS10097`,
     accentColor: '#6366f1',
     contentHtml: `
       <h3 style="color:#818cf8; margin-top:0; font-size:16px;">Good Morning!</h3>
-      <p style="color:#94a3b8; font-size:13px;">Here is your accurate <strong>Next 24 Hours</strong> schedule, test breakdown, and task agenda (${todayStr} – ${tomorrowStr}):</p>
+      <p style="color:#94a3b8; font-size:13px;">Here is your accurate <strong>Next 24 Hours</strong> schedule, test breakdown, and attendance alert (${todayStr} – ${tomorrowStr}):</p>
       
+      ${missedAlertsHtml}
+
       <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📅 Next 24 Hours Classes:</h4>
       ${classesHtml}
 
       <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks & Tests Due (Next 24 Hours):</h4>
       ${tasksHtml}
+
+      ${attendanceHtml}
     `,
   });
 
@@ -1022,6 +1129,66 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
           }
         }
         return json({ success: true });
+      }
+
+      // ─── ATTENDANCE TRACKER API ────────────────────────────────
+      if (path === '/api/attendance' && request.method === 'GET') {
+        if (env.DB) {
+          try {
+            const { results } = await env.DB.prepare(
+              'SELECT * FROM attendance_records ORDER BY date DESC, created_at DESC'
+            ).all();
+            return json(results || []);
+          } catch (e) {
+            console.error('GET /api/attendance D1 error:', e);
+          }
+        }
+        return json([]);
+      }
+
+      if (path === '/api/attendance' && request.method === 'POST') {
+        const body = (await request.json()) as any;
+        if (env.DB && body.subject_code && body.date && body.status) {
+          try {
+            const id = body.id || 'att-' + Date.now();
+            await env.DB.prepare(`
+              INSERT INTO attendance_records (id, subject_code, date, status, note)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                subject_code=excluded.subject_code,
+                date=excluded.date,
+                status=excluded.status,
+                note=excluded.note
+            `).bind(
+              id,
+              body.subject_code,
+              body.date,
+              body.status,
+              body.note || ''
+            ).run();
+            await touchLastEdit(env.DB);
+            return json({ success: true, id });
+          } catch (e: any) {
+            console.error('POST /api/attendance D1 error:', e);
+            return json({ success: false, message: e.message }, 500);
+          }
+        }
+        return json({ success: true });
+      }
+
+      if (path.startsWith('/api/attendance/') && request.method === 'DELETE') {
+        const parts = path.split('/');
+        const id = parts[parts.length - 1];
+
+        if (env.DB && id) {
+          try {
+            await env.DB.prepare('DELETE FROM attendance_records WHERE id = ?').bind(id).run();
+            await touchLastEdit(env.DB);
+          } catch (e: any) {
+            console.error(`DELETE /api/attendance/${id} D1 error:`, e);
+          }
+        }
+        return json({ success: true, deleted: id });
       }
 
       // ─── 4. GMAIL SMTP DISPATCH API ─────────────────────────────

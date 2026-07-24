@@ -14,9 +14,21 @@ export interface Reminder {
   created_at?: string;
 }
 
+export type AttendanceStatus = 'attended' | 'missed' | 'cancelled';
+
+export interface AttendanceRecord {
+  id: string;
+  subject_code: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  note?: string;
+  created_at?: string;
+}
+
 const LOCAL_STORAGE_KEY_REMINDERS = 'iitkgp_timetable_reminders_v1';
 const LOCAL_STORAGE_KEY_ROOMS = 'iitkgp_timetable_room_prefs_v1';
 const LOCAL_STORAGE_KEY_AUTH = 'iitkgp_timetable_auth_v1';
+const LOCAL_STORAGE_KEY_ATTENDANCE = 'iitkgp_timetable_attendance_v1';
 
 const DEFAULT_ROOM_PREFS: Record<string, string> = {
   CS31007: 'NC241',
@@ -403,5 +415,76 @@ export async function saveInternRole(role: InternCompany): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ─── ATTENDANCE TRACKER ───────────────────────────────────────────
+export async function getAttendanceRecords(): Promise<AttendanceRecord[]> {
+  if (!checkAuthSession().isAuthenticated) return [];
+  try {
+    const res = await fetch('/api/attendance', { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+    }
+  } catch {
+    // API fallback
+  }
+
+  const raw = localStorage.getItem(LOCAL_STORAGE_KEY_ATTENDANCE);
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch { /* fallback */ }
+  }
+  return [];
+}
+
+export async function saveAttendanceRecord(record: Omit<AttendanceRecord, 'id' | 'created_at'> & { id?: string }): Promise<AttendanceRecord[]> {
+  const current = await getAttendanceRecords();
+  let updated: AttendanceRecord[];
+
+  const id = record.id || 'att-' + Date.now();
+  const fullRec: AttendanceRecord = {
+    ...record,
+    id,
+    created_at: new Date().toISOString(),
+  };
+
+  const existingIdx = current.findIndex(r => r.id === id);
+  if (existingIdx >= 0) {
+    updated = [...current];
+    updated[existingIdx] = fullRec;
+  } else {
+    updated = [fullRec, ...current];
+  }
+
+  localStorage.setItem(LOCAL_STORAGE_KEY_ATTENDANCE, JSON.stringify(updated));
+  touchLocalLastEdit();
+
+  try {
+    await fetch('/api/attendance', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(fullRec),
+    });
+  } catch { /* fallback */ }
+
+  return updated;
+}
+
+export async function deleteAttendanceRecord(id: string): Promise<AttendanceRecord[]> {
+  const current = await getAttendanceRecords();
+  const updated = current.filter(r => r.id !== id);
+  localStorage.setItem(LOCAL_STORAGE_KEY_ATTENDANCE, JSON.stringify(updated));
+  touchLocalLastEdit();
+
+  try {
+    await fetch(`/api/attendance/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+  } catch { /* fallback */ }
+
+  return updated;
 }
 

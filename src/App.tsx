@@ -8,16 +8,19 @@ import {
   Database,
   CheckCircle2,
   Briefcase,
+  CheckSquare,
 } from 'lucide-react';
 import { STUDENT_INFO } from './data/timetableData';
 import { TodaySummary } from './components/TodaySummary';
 import { WeeklyTimetable } from './components/WeeklyTimetable';
 import { RemindersManager } from './components/RemindersManager';
 import { InternTracker } from './components/InternTracker';
+import { AttendanceTracker } from './components/AttendanceTracker';
 import { AuthModal } from './components/AuthModal';
 import { EmailSettingsModal } from './components/EmailSettingsModal';
 import {
   Reminder,
+  AttendanceRecord,
   checkAuthSession,
   checkSyncWithServer,
   getReminders,
@@ -26,21 +29,43 @@ import {
   toggleReminderStatus,
   getRoomPreferences,
   saveRoomPreference,
+  getAttendanceRecords,
+  saveAttendanceRecord,
+  deleteAttendanceRecord,
   sendEmailNotification,
   logoutAuthSession,
 } from './services/api';
 
-type TabId = 'today' | 'timetable' | 'reminders' | 'interns';
+type TabId = 'today' | 'timetable' | 'reminders' | 'interns' | 'attendance';
+
+const LOCAL_STORAGE_KEY_TAB = 'iitkgp_timetable_active_tab_v1';
 
 export const App: React.FC = () => {
   const isAnonymousTT = window.location.pathname === '/tt' || window.location.pathname === '/tt/';
 
-  const [activeTab, setActiveTab] = useState<TabId>('today');
+  const [activeTab, setActiveTabState] = useState<TabId>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TAB) as TabId;
+      if (saved && ['today', 'timetable', 'reminders', 'interns', 'attendance'].includes(saved)) {
+        return saved;
+      }
+    } catch (e) {}
+    return 'today';
+  });
+
+  const setActiveTab = (tab: TabId) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_TAB, tab);
+    } catch (e) {}
+  };
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [roomPrefs, setRoomPrefs] = useState<Record<string, string>>({
     CS31007: 'NC241',
     CS31003: 'NC241',
@@ -90,6 +115,8 @@ export const App: React.FC = () => {
     setReminders(rData);
     const roomData = await getRoomPreferences();
     setRoomPrefs(roomData);
+    const attData = await getAttendanceRecords();
+    setAttendanceRecords(attData);
   };
 
   const showToast = (message: string, _type: 'success' | 'info' = 'success') => {
@@ -118,6 +145,18 @@ export const App: React.FC = () => {
   const handleToggleReminderStatus = async (id: string) => {
     const updatedList = await toggleReminderStatus(id);
     setReminders(updatedList);
+  };
+
+  const handleSaveAttendance = async (rec: Omit<AttendanceRecord, 'id' | 'created_at'> & { id?: string }) => {
+    const updatedList = await saveAttendanceRecord(rec);
+    setAttendanceRecords(updatedList);
+    showToast('Attendance logged!');
+  };
+
+  const handleDeleteAttendance = async (id: string) => {
+    const updatedList = await deleteAttendanceRecord(id);
+    setAttendanceRecords(updatedList);
+    showToast('Attendance record deleted.', 'info');
   };
 
   const handleSendEmail = async (subject: string, text: string) => {
@@ -169,11 +208,12 @@ export const App: React.FC = () => {
   }
 
   const TABS: { id: TabId; label: string; mobileLabel: string; icon: React.ElementType; badge?: number }[] = [
-    { id: 'today',     label: "Today's Classes",         mobileLabel: 'Today',     icon: Calendar },
-    { id: 'timetable', label: 'Weekly Timetable',        mobileLabel: 'Schedule',  icon: BookOpen },
-    { id: 'reminders', label: 'Tasks & Reminders',       mobileLabel: 'Tasks',     icon: Bell,
+    { id: 'today',      label: "Today's Classes",         mobileLabel: 'Today',      icon: Calendar },
+    { id: 'timetable',  label: 'Weekly Timetable',        mobileLabel: 'Schedule',   icon: BookOpen },
+    { id: 'reminders',  label: 'Tasks & Reminders',       mobileLabel: 'Tasks',      icon: Bell,
       badge: reminders.filter(r => r.status === 'pending').length },
-    { id: 'interns',   label: 'Internships',             mobileLabel: 'Interns',   icon: Briefcase },
+    { id: 'interns',    label: 'Internships',             mobileLabel: 'Interns',    icon: Briefcase },
+    { id: 'attendance', label: 'Attendance & Bunks',      mobileLabel: 'Attendance', icon: CheckSquare },
   ];
 
   return (
@@ -372,6 +412,13 @@ export const App: React.FC = () => {
           />
         )}
         {activeTab === 'interns' && <InternTracker />}
+        {activeTab === 'attendance' && (
+          <AttendanceTracker
+            records={attendanceRecords}
+            onSaveRecord={handleSaveAttendance}
+            onDeleteRecord={handleDeleteAttendance}
+          />
+        )}
       </main>
 
       {/* ─── Mobile Bottom Nav ─── */}
