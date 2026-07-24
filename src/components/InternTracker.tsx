@@ -40,6 +40,80 @@ function getTier(ctc: number, currency: string) {
   return                         { label: 'CORE', color: '#94a3b8', bg: 'rgba(148,163,184,0.08)' };
 }
 
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thur','Fri','Sat'];
+
+export function formatDisplayDate(raw?: string): string {
+  if (!raw || !raw.trim()) return '';
+
+  const str = raw.trim();
+  let cleaned = str.replace(/[-/]?2026[-/]?/gi, ' ').replace(/\s+/g, ' ').trim();
+
+  if (/^(today|tomorrow|yesterday)/i.test(cleaned)) {
+    return cleaned;
+  }
+
+  let month = -1, day = -1, hour = -1, min = -1, ampm = '';
+
+  const m1 = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/);
+  const m2 = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  const m3 = str.match(/(\d{1,2})\s+([A-Za-z]{3})(?:\s+(\d{1,2}):(\d{2}))?/);
+  const m4 = str.match(/(?:[A-Za-z]{3},\s*)?(\d{1,2})\s+([A-Za-z]{3})(?:,?\s*(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i);
+
+  if (m1) {
+    month = parseInt(m1[2], 10) - 1;
+    day = parseInt(m1[3], 10);
+    if (m1[4] !== undefined) { hour = parseInt(m1[4], 10); min = parseInt(m1[5], 10); }
+  } else if (m2) {
+    day = parseInt(m2[1], 10);
+    month = parseInt(m2[2], 10) - 1;
+    if (m2[4] !== undefined) { hour = parseInt(m2[4], 10); min = parseInt(m2[5], 10); }
+  } else if (m3) {
+    day = parseInt(m3[1], 10);
+    const mStr = m3[2].toLowerCase();
+    month = MONTH_NAMES.findIndex(m => m.toLowerCase() === mStr);
+    if (m3[3] !== undefined) { hour = parseInt(m3[3], 10); min = parseInt(m3[4], 10); }
+  } else if (m4) {
+    day = parseInt(m4[1], 10);
+    const mStr = m4[2].toLowerCase();
+    month = MONTH_NAMES.findIndex(m => m.toLowerCase() === mStr);
+    if (m4[3] !== undefined) {
+      hour = parseInt(m4[3], 10);
+      min = parseInt(m4[4], 10);
+      ampm = m4[5] ? m4[5].toUpperCase() : '';
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+    }
+  }
+
+  if (day !== -1 && month !== -1) {
+    const today = new Date();
+    const targetDate = new Date(today.getFullYear(), month, day);
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diffDays = Math.round((targetDate.getTime() - todayZero.getTime()) / (1000 * 3600 * 24));
+
+    let datePrefix = '';
+    if (diffDays === 0) datePrefix = 'Today';
+    else if (diffDays === 1) datePrefix = 'Tomorrow';
+    else if (diffDays === -1) datePrefix = 'Yesterday';
+    else {
+      const dayName = DAY_SHORT[targetDate.getDay()];
+      const mName = MONTH_NAMES[month];
+      datePrefix = `${dayName}, ${day} ${mName}`;
+    }
+
+    if (hour !== -1 && min !== -1) {
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const h12 = hour % 12 === 0 ? 12 : hour % 12;
+      const mStr = min < 10 ? `0${min}` : `${min}`;
+      return `${datePrefix}, ${h12}:${mStr} ${period}`;
+    }
+    return datePrefix;
+  }
+
+  return cleaned;
+}
+
 export const InternTracker: React.FC = () => {
   const [interns, setInterns] = useState<InternCompany[]>([]);
   const [filter, setFilter] = useState<FilterKey>('active');
@@ -51,8 +125,48 @@ export const InternTracker: React.FC = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [editInterviewId, setEditInterviewId] = useState<string | null>(null);
-  const [interviewDraft, setInterviewDraft] = useState('');
   const [selectedDetail, setSelectedDetail] = useState<InternCompany | null>(null);
+
+  const QUICK_DATE_OPTIONS = useMemo(() => {
+    const options: { value: string; label: string }[] = [];
+    const today = new Date();
+    for (let offset = -7; offset <= 14; offset++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+      const dayNum = d.getDate();
+      const monthStr = MONTH_NAMES[d.getMonth()];
+      const dayOfWeek = DAY_SHORT[d.getDay()];
+
+      const dateVal = `${dayNum} ${monthStr}`;
+      let label = `${dayOfWeek}, ${dayNum} ${monthStr}`;
+
+      if (offset === 0) label = `Today (${dayNum} ${monthStr})`;
+      else if (offset === 1) label = `Tomorrow (${dayNum} ${monthStr})`;
+      else if (offset === -1) label = `Yesterday (${dayNum} ${monthStr})`;
+
+      options.push({ value: dateVal, label });
+    }
+    return options;
+  }, []);
+
+  const [selectedDayVal, setSelectedDayVal] = useState<string>('');
+  const [selectedTimeVal, setSelectedTimeVal] = useState<string>('10:00 AM');
+
+  const openInterviewPicker = (intern: InternCompany) => {
+    setEditInterviewId(intern.id);
+    const matchOpt = QUICK_DATE_OPTIONS.find(o => intern.interviewDate.includes(o.value));
+    setSelectedDayVal(matchOpt ? matchOpt.value : QUICK_DATE_OPTIONS[7].value);
+    setSelectedTimeVal('10:00 AM');
+  };
+
+  const saveInterview = (id: string, dateVal?: string) => {
+    const role = interns.find(i => i.id === id);
+    if (role) {
+      const valToSave = dateVal !== undefined ? dateVal : `${selectedDayVal}, ${selectedTimeVal}`;
+      const updatedRole = { ...role, interviewDate: valToSave };
+      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
+      setEditInterviewId(null);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -124,14 +238,54 @@ export const InternTracker: React.FC = () => {
     }
   };
 
-  const saveInterview = (id: string) => {
-    const role = interns.find(i => i.id === id);
-    if (role) {
-      const updatedRole = { ...role, interviewDate: interviewDraft };
-      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
-      setEditInterviewId(null);
-    }
-  };
+  const renderDatePicker = (intern: InternCompany) => (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+      <select
+        value={selectedDayVal}
+        onChange={e => setSelectedDayVal(e.target.value)}
+        style={{
+          background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(99,102,241,0.4)',
+          borderRadius: 6, padding: '3px 6px', color: '#818cf8',
+          fontSize: 11, fontWeight: 700, outline: 'none', cursor: 'pointer',
+        }}
+      >
+        {QUICK_DATE_OPTIONS.map(opt => (
+          <option key={opt.value} value={opt.value} style={{ background: '#0b0f19', color: '#e2e8f0' }}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedTimeVal}
+        onChange={e => setSelectedTimeVal(e.target.value)}
+        style={{
+          background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(99,102,241,0.4)',
+          borderRadius: 6, padding: '3px 6px', color: '#4ade80',
+          fontSize: 11, fontWeight: 700, outline: 'none', cursor: 'pointer',
+        }}
+      >
+        {['09:00 AM','10:00 AM','11:00 AM','02:00 PM','04:00 PM','06:00 PM','08:00 PM','11:59 PM'].map(t => (
+          <option key={t} value={t} style={{ background: '#0b0f19', color: '#e2e8f0' }}>{t}</option>
+        ))}
+      </select>
+
+      <button
+        onClick={() => saveInterview(intern.id)}
+        title="Save Date"
+        style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#4ade80', lineHeight: 1 }}
+      >
+        <Check size={11} />
+      </button>
+      <button
+        onClick={() => saveInterview(intern.id, '')}
+        title="Clear Date"
+        style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#ef4444', lineHeight: 1 }}
+      >
+        <X size={11} />
+      </button>
+    </div>
+  );
 
   const handleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -281,37 +435,20 @@ export const InternTracker: React.FC = () => {
 
         {/* Resume Deadline */}
         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-          <div style={{ fontSize: 11, color: '#fca5a5', fontFamily: 'monospace' }}>{intern.resumeEnd}</div>
+          <div style={{ fontSize: 11, color: '#fca5a5', fontFamily: 'monospace' }}>{formatDisplayDate(intern.resumeEnd)}</div>
         </td>
 
         {/* Interview */}
         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
           {editInterviewId === intern.id ? (
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <input
-                value={interviewDraft}
-                onChange={e => setInterviewDraft(e.target.value)}
-                placeholder="dd-mm-yyyy hh:mm"
-                style={{
-                  background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(99,102,241,0.4)',
-                  borderRadius: 6, padding: '3px 7px', color: '#e2e8f0',
-                  fontSize: 11, fontFamily: 'monospace', width: 130, outline: 'none',
-                }}
-              />
-              <button onClick={() => saveInterview(intern.id)} style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#4ade80', lineHeight: 1 }}>
-                <Check size={11} />
-              </button>
-              <button onClick={() => setEditInterviewId(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#475569', lineHeight: 1 }}>
-                <X size={11} />
-              </button>
-            </div>
+            renderDatePicker(intern)
           ) : (
             <span
-              onClick={() => { setEditInterviewId(intern.id); setInterviewDraft(intern.interviewDate); }}
+              onClick={() => openInterviewPicker(intern)}
               style={{ fontSize: 11, color: intern.interviewDate ? '#fdba74' : '#334155', fontFamily: 'monospace', cursor: 'pointer' }}
-              title="Click to set interview date"
+              title="Click to pick interview date"
             >
-              {intern.interviewDate || '— set date'}
+              {formatDisplayDate(intern.interviewDate) || '— set date'}
             </span>
           )}
         </td>
@@ -469,17 +606,25 @@ export const InternTracker: React.FC = () => {
         </div>
 
         {/* Deadline row */}
-        <div style={{ background: 'rgba(3,7,18,0.5)', borderRadius: 8, padding: '7px 10px', display: 'flex', gap: 12 }}>
+        <div style={{ background: 'rgba(3,7,18,0.5)', borderRadius: 8, padding: '7px 10px', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deadline</div>
-            <div style={{ fontSize: 11, color: '#fca5a5', fontFamily: 'monospace', marginTop: 1 }}>{intern.resumeEnd}</div>
+            <div style={{ fontSize: 11, color: '#fca5a5', fontFamily: 'monospace', marginTop: 1 }}>{formatDisplayDate(intern.resumeEnd)}</div>
           </div>
-          {intern.interviewDate && (
-            <div>
-              <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Interview</div>
-              <div style={{ fontSize: 11, color: '#fdba74', fontFamily: 'monospace', marginTop: 1 }}>{intern.interviewDate}</div>
-            </div>
-          )}
+          <div>
+            <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Interview</div>
+            {editInterviewId === intern.id ? (
+              renderDatePicker(intern)
+            ) : (
+              <div
+                onClick={() => openInterviewPicker(intern)}
+                style={{ fontSize: 11, color: intern.interviewDate ? '#fdba74' : '#64748b', fontFamily: 'monospace', marginTop: 1, cursor: 'pointer' }}
+                title="Click to pick interview date"
+              >
+                {formatDisplayDate(intern.interviewDate) || '+ set date'}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Status Picker Dropdown */}
