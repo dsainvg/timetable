@@ -9220,7 +9220,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
     "id": "i62",
     "company": "Rubrik",
-    "ctc": 10500003250000539345500705390592,
+    "ctc": 1865000,
     "currency": "INR",
     "applyStatus": "Y",
     "resumeStart": "2026-07-22 15:05",
@@ -9261,7 +9261,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
     "id": "i61",
     "company": "Rubrik",
-    "ctc": 10500003250000539345500705390592,
+    "ctc": 1865000,
     "currency": "INR",
     "applyStatus": "Y",
     "resumeStart": "2026-07-22 15:05",

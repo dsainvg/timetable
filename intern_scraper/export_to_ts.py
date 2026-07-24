@@ -9,11 +9,46 @@ TARGET_TS = os.path.abspath(os.path.join(BASE_DIR, "..", "src", "data", "internD
 def parse_ctc(ctc_val):
     if not ctc_val:
         return 0
-    try:
-        cleaned = re.sub(r'[^\d.]', '', str(ctc_val))
-        return int(float(cleaned)) if cleaned else 0
-    except Exception:
+    val_str = str(ctc_val).strip()
+    if not val_str:
         return 0
+    if re.match(r'^\d+(\.\d+)?$', val_str):
+        try:
+            return int(float(val_str))
+        except Exception:
+            return 0
+    m_total = re.search(r'TOTAL\s*[-:=]?\s*(\d[\d,\.]*)', val_str, re.IGNORECASE)
+    if m_total:
+        cleaned = re.sub(r'[^\d.]', '', m_total.group(1))
+        if cleaned:
+            try:
+                return int(float(cleaned))
+            except Exception:
+                pass
+    m_lakh = re.search(r'(\d+(?:\.\d+)?)\s*(?:lakhs?|lakh|l)\b', val_str, re.IGNORECASE)
+    if m_lakh:
+        try:
+            return int(float(m_lakh.group(1)) * 100000)
+        except Exception:
+            pass
+    numbers = re.findall(r'\b\d(?:[\d,]*\d)?(?:\.\d+)?\b', val_str)
+    parsed_nums = []
+    for n in numbers:
+        c = re.sub(r'[^\d.]', '', n)
+        if c:
+            try:
+                parsed_nums.append(int(float(c)))
+            except Exception:
+                pass
+    if parsed_nums:
+        return max(parsed_nums)
+    cleaned = re.sub(r'[^\d.]', '', val_str)
+    if cleaned:
+        try:
+            return int(float(cleaned))
+        except Exception:
+            pass
+    return 0
 
 def slugify(text: str) -> str:
     if not text:

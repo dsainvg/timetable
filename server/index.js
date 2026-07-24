@@ -59,6 +59,25 @@ let roomPrefsStore = {
   CS31005: 'NC231',
 };
 
+function parseCTC(ctcStr) {
+  if (!ctcStr) return 0;
+  const str = String(ctcStr).trim();
+  if (!str) return 0;
+  if (/^\d+(\.\d+)?$/.test(str)) return parseInt(str, 10);
+  const mTotal = str.match(/TOTAL\s*[-:=]?\s*(\d[\d,\.]*)/i);
+  if (mTotal) {
+    const cleaned = mTotal[1].replace(/[^\d.]/g, '');
+    if (cleaned) return parseInt(cleaned, 10);
+  }
+  const nums = str.match(/\b\d(?:[\d,]*\d)?(?:\.\d+)?\b/g);
+  if (nums) {
+    const parsed = nums.map(n => parseInt(n.replace(/[^\d.]/g, ''), 10)).filter(n => !isNaN(n));
+    if (parsed.length > 0) return Math.max(...parsed);
+  }
+  const fallback = str.replace(/[^\d.]/g, '');
+  return fallback ? parseInt(fallback, 10) : 0;
+}
+
 // Seed internRolesStore from scraper output JSON on startup
 let internRolesStore = [];
 try {
@@ -66,13 +85,7 @@ try {
   if (fs.existsSync(jsonPath)) {
     const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     internRolesStore = raw.map((r, idx) => {
-      let ctcVal = 0;
-      if (r.company_name.includes("Rubrik")) {
-        ctcVal = 621666;
-      } else {
-        const nums = (r.ctc || '').match(/\d+/);
-        if (nums) ctcVal = parseInt(nums[0], 10);
-      }
+      let ctcVal = parseCTC(r.ctc);
       
       let jd = (r.jnf_details || {}).job_description || '';
       let title = (jd.split('\n')[0] || '').trim();
