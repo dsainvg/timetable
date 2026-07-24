@@ -19,6 +19,7 @@ import { EmailSettingsModal } from './components/EmailSettingsModal';
 import {
   Reminder,
   checkAuthSession,
+  checkSyncWithServer,
   getReminders,
   saveReminder,
   deleteReminder,
@@ -64,6 +65,25 @@ export const App: React.FC = () => {
       setIsAuthModalOpen(true);
     }
   }, [isAnonymousTT]);
+
+  // 1-minute auto sync timer to check for DB timestamp mismatch
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const syncResult = await checkSyncWithServer();
+        if (syncResult.needsRefresh) {
+          console.log('[AUTO-SYNC] Server edit mismatch detected. Reloading data...');
+          loadData();
+        }
+      } catch (e) {
+        console.error('[AUTO-SYNC ERROR]', e);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     const rData = await getReminders();
@@ -141,7 +161,7 @@ export const App: React.FC = () => {
             setIsAuthenticated(true);
             setIsAuthModalOpen(false);
             loadData();
-            showToast('Authenticated! 10-day session active.');
+            showToast('Authenticated! 30-day persistent session active.');
           }}
         />
       </div>
@@ -406,7 +426,7 @@ export const App: React.FC = () => {
         onAuthenticated={() => {
           setIsAuthenticated(true);
           setIsAuthModalOpen(false);
-          showToast('Authenticated! 10-day session active.');
+          showToast('Authenticated! 30-day persistent session active.');
         }}
       />
       <EmailSettingsModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} />

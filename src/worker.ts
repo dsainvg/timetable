@@ -261,6 +261,27 @@ function getHash(str: string): string {
   return hash.toString();
 }
 
+async function touchLastEdit(db: any) {
+  if (!db) return;
+  const nowStr = Date.now().toString();
+  try {
+    await db.prepare(
+      "INSERT INTO metadata (key, value) VALUES ('last_edit_timestamp', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    ).bind(nowStr).run();
+  } catch (e) {
+    console.error('touchLastEdit warning:', e);
+  }
+}
+
+async function getLastEditTimestamp(db: any): Promise<number> {
+  if (!db) return Date.now();
+  try {
+    const res = await db.prepare("SELECT value FROM metadata WHERE key = 'last_edit_timestamp'").get();
+    if (res && res.value) return Number(res.value);
+  } catch (e) {}
+  return Date.now();
+}
+
 // Auto-initialize D1 Database Tables
 async function ensureTables(db: any) {
   if (!db || isDbInitialized) return;
@@ -282,6 +303,13 @@ async function ensureTables(db: any) {
         CREATE TABLE IF NOT EXISTS metadata (
           key TEXT PRIMARY KEY,
           value TEXT
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS auth_tokens (
+          token TEXT PRIMARY KEY,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at INTEGER NOT NULL
         )
       `),
       db.prepare(`
@@ -688,7 +716,7 @@ function generateSessionToken(expiresAt: number): string {
   return 'tt_token_' + btoa(payload).replace(/=/g, '');
 }
 
-function validateSessionToken(authHeader: string | null): boolean {
+async function validateSessionToken(authHeader: string | null, db?: any): Promise<boolean> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.substring(7).trim();
   if (!token.startsWith('tt_token_')) return false;
@@ -698,8 +726,13 @@ function validateSessionToken(authHeader: string | null): boolean {
     if (decoded && decoded.expiresAt && decoded.expiresAt > Date.now()) {
       return true;
     }
-  } catch (e) {
-    return false;
+  } catch (e) {}
+
+  if (db) {
+    try {
+      const res = await db.prepare("SELECT 1 FROM auth_tokens WHERE token = ? AND expires_at > ?").bind(token, Date.now()).get();
+      if (res) return true;
+    } catch (e) {}
   }
   return false;
 }
@@ -709,19 +742,33 @@ function validateSessionToken(authHeader: string | null): boolean {
         await ensureTables(env.DB);
       }
 
+      if (path === '/api/sync-check' && request.method === 'GET') {
+        const lastEdit = await getLastEditTimestamp(env.DB);
+        return json({ success: true, lastEdit });
+      }
+
       if (path === '/api/verify-auth' && request.method === 'POST') {
         const body = (await request.json()) as { password?: string };
         const clientPass = (body.password || '').trim();
         const serverSecret = (env.APP_PASSWORD || '24cs10097').trim();
 
         if (clientPass === serverSecret) {
-          const expiresAt = Date.now() + 10 * 24 * 60 * 60 * 1000;
+          const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
           const token = generateSessionToken(expiresAt);
+          if (env.DB) {
+            try {
+              await env.DB.prepare(
+                "INSERT INTO auth_tokens (token, expires_at) VALUES (?, ?) ON CONFLICT(token) DO UPDATE SET expires_at = excluded.expires_at"
+              ).bind(token, expiresAt).run();
+            } catch (e) {
+              console.error('Failed to store auth_token in D1:', e);
+            }
+          }
           return json({
             success: true,
             token,
             expiresAt,
-            message: 'Authentication successful. Access granted for 10 days.',
+            message: 'Authentication successful. Access granted for 30 days.',
           });
         } else {
           return json({ success: false, message: 'Invalid security passcode.' }, 401);
@@ -730,7 +777,8 @@ function validateSessionToken(authHeader: string | null): boolean {
 
       // Authorization Gatekeeper for protected API routes
       const authHeader = request.headers.get('Authorization');
-      if (!validateSessionToken(authHeader)) {
+      const isValidAuth = await validateSessionToken(authHeader, env.DB);
+      if (!isValidAuth) {
         return json({ success: false, error: 'Unauthorized. Valid authentication token required.' }, 401);
       }
 
@@ -842,6 +890,7 @@ function validateSessionToken(authHeader: string | null): boolean {
               }
             }
 
+            await touchLastEdit(env.DB);
             return json({ success: true });
           } catch (e) {
             console.error('POST /api/interns D1 error:', e);
@@ -895,6 +944,7 @@ function validateSessionToken(authHeader: string | null): boolean {
               body.description || ''
             ).run();
 
+            await touchLastEdit(env.DB);
             return json({ success: true, id });
           } catch (e: any) {
             console.error('POST /api/reminders D1 error:', e);
@@ -912,6 +962,7 @@ function validateSessionToken(authHeader: string | null): boolean {
           try {
             await env.DB.prepare('DELETE FROM sent_email_logs WHERE reminder_id = ?').bind(id).run().catch(() => {});
             await env.DB.prepare('DELETE FROM reminders WHERE id = ?').bind(id).run();
+            await touchLastEdit(env.DB);
           } catch (e: any) {
             console.error(`DELETE /api/reminders/${id} D1 error:`, e);
           }
@@ -930,6 +981,7 @@ function validateSessionToken(authHeader: string | null): boolean {
               SET status = CASE WHEN status = 'completed' THEN 'pending' ELSE 'completed' END
               WHERE id = ?
             `).bind(id).run();
+            await touchLastEdit(env.DB);
           } catch (e: any) {
             console.error(`PUT /api/reminders/${id}/toggle D1 error:`, e);
           }
@@ -964,6 +1016,7 @@ function validateSessionToken(authHeader: string | null): boolean {
               VALUES (?, ?)
               ON CONFLICT(subject_code) DO UPDATE SET selected_room=excluded.selected_room
             `).bind(body.subjectCode, body.room).run();
+            await touchLastEdit(env.DB);
           } catch (e) {
             console.error('POST /api/rooms D1 error:', e);
           }

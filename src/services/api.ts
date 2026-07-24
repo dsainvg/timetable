@@ -66,6 +66,35 @@ const INITIAL_REMINDERS: Reminder[] = [
   },
 ];
 
+const LOCAL_STORAGE_KEY_LAST_EDIT = 'iitkgp_timetable_last_edit_v1';
+
+export function touchLocalLastEdit(timestamp?: number): void {
+  const ts = timestamp || Date.now();
+  localStorage.setItem(LOCAL_STORAGE_KEY_LAST_EDIT, ts.toString());
+}
+
+export function getLocalLastEdit(): number {
+  return Number(localStorage.getItem(LOCAL_STORAGE_KEY_LAST_EDIT) || 0);
+}
+
+export async function checkSyncWithServer(): Promise<{ needsRefresh: boolean; serverLastEdit: number }> {
+  try {
+    const res = await fetch('/api/sync-check', { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      const serverLastEdit = Number(data.lastEdit || 0);
+      const localLastEdit = getLocalLastEdit();
+      if (serverLastEdit > localLastEdit) {
+        touchLocalLastEdit(serverLastEdit);
+        return { needsRefresh: true, serverLastEdit };
+      }
+    }
+  } catch (e) {
+    console.error('Sync check error:', e);
+  }
+  return { needsRefresh: false, serverLastEdit: 0 };
+}
+
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -84,7 +113,7 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
-// ─── AUTHENTICATION (Server-Side Verified, 10 Days Expiry) ───────
+// ─── AUTHENTICATION (Server-Side Verified, 30 Days Expiry) ───────
 export function checkAuthSession(): { isAuthenticated: boolean; expiresAt: number | null } {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
@@ -115,12 +144,13 @@ export async function verifyAuthPasscode(password: string): Promise<{ success: b
     const data = await res.json();
 
     if (res.ok && data.success) {
-      const expiresAt = data.expiresAt || (Date.now() + 10 * 24 * 60 * 60 * 1000);
+      const expiresAt = data.expiresAt || (Date.now() + 30 * 24 * 60 * 60 * 1000);
       localStorage.setItem(
         LOCAL_STORAGE_KEY_AUTH,
         JSON.stringify({ authenticated: true, token: data.token, expiresAt })
       );
-      return { success: true, message: data.message || 'Access granted for 10 days.' };
+      touchLocalLastEdit();
+      return { success: true, message: data.message || 'Access granted for 30 days.' };
     }
 
     return {
@@ -168,6 +198,7 @@ export async function saveRoomPreference(subjectCode: string, room: string): Pro
   const current = await getRoomPreferences();
   const updated = { ...current, [subjectCode]: room };
   localStorage.setItem(LOCAL_STORAGE_KEY_ROOMS, JSON.stringify(updated));
+  touchLocalLastEdit();
 
   try {
     await fetch('/api/rooms', {
@@ -220,6 +251,7 @@ export async function saveReminder(reminder: Omit<Reminder, 'id' | 'created_at'>
   }
 
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(updated));
+  touchLocalLastEdit();
 
   try {
     await fetch('/api/reminders', {
@@ -236,6 +268,7 @@ export async function deleteReminder(id: string): Promise<Reminder[]> {
   const current = await getReminders();
   const updated = current.filter((r) => r.id !== id);
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(updated));
+  touchLocalLastEdit();
 
   try {
     await fetch(`/api/reminders/${id}`, {
@@ -253,6 +286,7 @@ export async function toggleReminderStatus(id: string): Promise<Reminder[]> {
     r.id === id ? { ...r, status: r.status === 'completed' ? 'pending' : 'completed' } as Reminder : r
   );
   localStorage.setItem(LOCAL_STORAGE_KEY_REMINDERS, JSON.stringify(updated));
+  touchLocalLastEdit();
 
   try {
     await fetch(`/api/reminders/${id}/toggle`, {
@@ -306,6 +340,8 @@ export async function getInternRoles(): Promise<InternCompany[]> {
 export async function saveInternRole(role: InternCompany): Promise<boolean> {
   if (!checkAuthSession().isAuthenticated) return false;
   
+  touchLocalLastEdit();
+
   // Synchronize with local storage reminders list
   try {
     const remId = 'rem-interview-' + role.id;
