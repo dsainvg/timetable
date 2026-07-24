@@ -56,10 +56,6 @@ def convert():
                     key_to_id_map[("com_jnf_id", c_id, j_id)] = role_id
                 if c_name and j_id:
                     key_to_id_map[("name_jnf", slugify(c_name), j_id)] = role_id
-                if c_name and pos:
-                    key_to_id_map[("name_pos", slugify(c_name), slugify(pos))] = role_id
-                if c_name:
-                    key_to_id_map[("name_only", slugify(c_name))] = role_id
 
     formatted_roles = []
     for idx, r in enumerate(roles, 1):
@@ -69,21 +65,25 @@ def convert():
         jnf_details = r.get("jnf_details", {})
         pos_note = jnf_details.get("form_type") or r.get("apply_acceptance") or ""
 
-        # Multi-key deterministic ID resolution
+        # Multi-key deterministic ID resolution (Com ID + JNF ID takes precedence)
         role_id = None
         if com_id and jnf_id and ("com_jnf_id", com_id, jnf_id) in key_to_id_map:
             role_id = key_to_id_map[("com_jnf_id", com_id, jnf_id)]
         elif company_name and jnf_id and ("name_jnf", slugify(company_name), jnf_id) in key_to_id_map:
             role_id = key_to_id_map[("name_jnf", slugify(company_name), jnf_id)]
-        elif company_name and pos_note and ("name_pos", slugify(company_name), slugify(pos_note)) in key_to_id_map:
-            role_id = key_to_id_map[("name_pos", slugify(company_name), slugify(pos_note))]
-        elif company_name and ("name_only", slugify(company_name)) in key_to_id_map:
-            role_id = key_to_id_map[("name_only", slugify(company_name))]
 
         if not role_id:
-            role_id = f"role_{slugify(company_name)}_{slugify(pos_note or jnf_id or str(idx))}"
+            role_id = f"i{idx}"
 
         existing = existing_map.get(role_id, {})
+        existing_status = existing.get("myStatus")
+        if r.get("application_status") == "Y":
+            if not existing_status or existing_status == "not_applied":
+                my_status = "applied"
+            else:
+                my_status = existing_status
+        else:
+            my_status = existing_status if existing_status else "not_applied"
 
         entry = {
             "id": role_id,
@@ -96,7 +96,7 @@ def convert():
             "interviewDate": existing.get("interviewDate") or r.get("interview_selection_date") or "",
             "positionNote": pos_note,
             "sortingDone": existing.get("sortingDone", False),
-            "myStatus": existing.get("myStatus", "applied" if r.get("application_status") == "Y" else "not_applied"),
+            "myStatus": my_status,
             "notes": existing.get("notes", ""),
             "jnfUrl": r.get("jnf_url", ""),
             "jnfId": jnf_id,
@@ -148,7 +148,7 @@ export interface InternCompany {{
   applicationStatus?: string;
 }}
 
-const LOCAL_STORAGE_KEY = 'iitkgp_intern_tracker_v4';
+const LOCAL_STORAGE_KEY = 'iitkgp_intern_tracker_v5';
 
 export const INTERN_COMPANIES_DEFAULT: InternCompany[] = {json.dumps(formatted_roles, indent=2, ensure_ascii=False)};
 
@@ -158,10 +158,12 @@ export function getInternData(): InternCompany[] {{
     if (saved) {{
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {{
-        // Merge saved statuses with fresh dataset
+        // Merge saved user overrides (myStatus, notes, sortingDone, interviewDate) into fresh scraped list by ID or comId+jnfId
         const savedMap = new Map(parsed.map((item: InternCompany) => [item.id, item]));
+        const savedComJnfMap = new Map(parsed.filter((item: InternCompany) => item.comId && item.jnfId).map((item: InternCompany) => [`${{item.comId}}_${{item.jnfId}}`, item]));
+
         return INTERN_COMPANIES_DEFAULT.map(item => {{
-          const userItem = savedMap.get(item.id);
+          const userItem = savedMap.get(item.id) || (item.comId && item.jnfId ? savedComJnfMap.get(`${{item.comId}}_${{item.jnfId}}`) : undefined);
           if (userItem) {{
             return {{
               ...item,
