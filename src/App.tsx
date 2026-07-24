@@ -210,7 +210,7 @@ export const App: React.FC = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.01em' }}>
+                <span className="student-name" style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.01em' }}>
                   {STUDENT_INFO.name}
                 </span>
                 <span style={{
@@ -218,11 +218,12 @@ export const App: React.FC = () => {
                   background: 'rgba(99,102,241,0.15)', color: '#818cf8',
                   border: '1px solid rgba(99,102,241,0.3)',
                   padding: '1px 7px', borderRadius: 6,
+                  flexShrink: 0,
                 }}>
                   {STUDENT_INFO.rollNo}
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>
+              <p className="student-sub" style={{ margin: 0, fontSize: 11, color: '#64748b' }}>
                 {STUDENT_INFO.dept} · {STUDENT_INFO.session}
               </p>
             </div>

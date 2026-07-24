@@ -55,6 +55,10 @@ export const InternTracker: React.FC = () => {
   const [selectedDetail, setSelectedDetail] = useState<InternCompany | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('cards');
+    }
+
     let active = true;
     async function load() {
       const roles = await getInternRoles();
@@ -799,7 +803,7 @@ export const InternTracker: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           {activeList.map(i => renderCard(i))}
         </div>
       )}

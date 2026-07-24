@@ -125,15 +125,114 @@ body {
 }
 
 @media (max-width: 767px) {
-  /* Show mobile nav, hide desktop tab labels */
+  /* Show mobile nav, hide desktop tab labels and nav */
   .tab-label { display: none; }
   .hide-mobile-label { display: none !important; }
+  .desktop-nav { display: none !important; }
+  .desktop-only { display: none !important; }
 }
 
 /* ─── Desktop: show db badge + email label ─── */
 @media (min-width: 1024px) {
   .db-badge { display: flex !important; }
   .email-label { display: inline !important; }
+}
+
+/* ─── Timetable & status widget responsive containers ─── */
+.timetable-tables-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  flex-direction: row;
+}
+
+@media (max-width: 767px) {
+  .timetable-tables-container {
+    flex-direction: column;
+  }
+}
+
+.status-widget {
+  min-width: 240px;
+  max-width: 320px;
+  width: auto;
+}
+
+@media (max-width: 767px) {
+  .status-widget {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+.student-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+@media (min-width: 768px) {
+  .student-name {
+    max-width: none;
+  }
+}
+
+.student-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+@media (min-width: 768px) {
+  .student-sub {
+    max-width: none;
+  }
+}
+
+.timetable-morning-col {
+  flex: 5 5 0%;
+  min-width: 480px;
+}
+
+.timetable-afternoon-col {
+  flex: 3 3 0%;
+  min-width: 280px;
+}
+
+@media (max-width: 767px) {
+  .timetable-morning-col,
+  .timetable-afternoon-col {
+    min-width: 0 !important;
+    width: 100%;
+  }
+}
+
+.day-switcher-container {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .day-switcher-container {
+    overflow-x: visible;
+    width: auto;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* ─── Table (WeeklyTimetable) scrollable on mobile ─── */

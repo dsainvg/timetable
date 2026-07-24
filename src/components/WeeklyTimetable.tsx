@@ -262,20 +262,14 @@ export const WeeklyTimetable: React.FC<WeeklyTimetableProps> = ({ roomPrefs }) =
       </div>
 
       {/* ── Side-By-Side Tables Row ────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        gap: 12,
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: 4,
-      }}>
+      <div className="timetable-tables-container">
         {/* Table 1: Morning Session */}
-        <div style={{ flex: '5 5 0%', minWidth: 480 }}>
+        <div className="timetable-morning-col">
           {renderTimetableGrid(MORNING_SLOTS, false)}
         </div>
 
         {/* Table 2: Afternoon Session */}
-        <div style={{ flex: '3 3 0%', minWidth: 280 }}>
+        <div className="timetable-afternoon-col">
           {renderTimetableGrid(AFTERNOON_SLOTS, true)}
         </div>
       </div>

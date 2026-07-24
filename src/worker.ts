@@ -1,6 +1,7 @@
 // @ts-ignore
 import { connect } from 'cloudflare:sockets';
 import { INTERN_COMPANIES_DEFAULT } from './data/internData';
+import { SCHEDULE_GRID, COURSES } from './data/timetableData';
 
 export interface Env {
   DB?: any;
@@ -432,6 +433,64 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
     return;
   }
 
+  // 1. Fetch Room Preferences
+  const roomPrefs: Record<string, string> = {};
+  try {
+    const { results: roomData } = await env.DB.prepare(
+      "SELECT subject_code, selected_room FROM room_preferences"
+    ).all();
+    if (roomData) {
+      for (const row of roomData) {
+        roomPrefs[row.subject_code] = row.selected_room;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load room preferences for morning summary:', e);
+  }
+
+  // 2. Fetch today's classes
+  const DAY_MAP: Record<number, string> = {
+    1: 'Mon',
+    2: 'Tue',
+    3: 'Wed',
+    4: 'Thur',
+    5: 'Fri',
+  };
+  const dayName = DAY_MAP[ist.dayOfWeek];
+  let classesHtml = '';
+  if (dayName) {
+    const todaySlots = SCHEDULE_GRID.filter(s => s.day === dayName)
+      .sort((a, b) => a.slotIndex - b.slotIndex);
+
+    if (todaySlots.length > 0) {
+      classesHtml = todaySlots.map(s => {
+        const course = COURSES[s.subjectCode];
+        const room = roomPrefs[s.subjectCode] || s.defaultRoom;
+        const color = course?.color || '#6366f1';
+        const courseName = course?.name || s.subjectCode;
+        const shortName = course?.shortName || s.subjectCode;
+        return `
+          <div class="card" style="border-left: 4px solid ${color};">
+            <div class="card-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-weight: 800; color: #f8fafc;">🏫 [${shortName}] ${courseName}</span>
+              <span style="font-size: 11px; background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); border-radius: 6px; padding: 2px 8px; font-weight: 700; font-family: monospace; white-space: nowrap;">
+                📍 ${room}
+              </span>
+            </div>
+            <div class="card-sub" style="font-size: 12px; color: #94a3b8;">
+              Time slot: <strong>${s.startTime} - ${s.endTime}</strong> ${s.labSpan ? `(${s.labSpan}h block)` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      classesHtml = '<div class="card"><div class="card-title">🎉 Free Day!</div><div class="card-sub">No classes scheduled for today.</div></div>';
+    }
+  } else {
+    classesHtml = '<div class="card"><div class="card-title">🎉 Weekend!</div><div class="card-sub">No classes scheduled on weekends.</div></div>';
+  }
+
+  // 3. Fetch due tasks
   const { results: dueTasks } = await env.DB.prepare(
     "SELECT * FROM reminders WHERE due_date = ? AND status = 'pending'"
   ).bind(todayStr).all();
@@ -458,6 +517,9 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
       <h3 style="color:#818cf8; margin-top:0; font-size:16px;">Good Morning!</h3>
       <p style="color:#94a3b8; font-size:13px;">Here is your daily schedule and task breakdown for today (${todayStr}):</p>
       
+      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📅 Today's Classes:</h4>
+      ${classesHtml}
+
       <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks Due Today:</h4>
       ${tasksHtml}
     `,

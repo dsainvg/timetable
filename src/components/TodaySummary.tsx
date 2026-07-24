@@ -154,9 +154,9 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
 
           {/* Active / Next class widget */}
           {activeClass ? (
-            <div style={{
+            <div className="status-widget" style={{
               background:'rgba(74,222,128,0.08)', border:'1px solid rgba(74,222,128,0.35)',
-              borderRadius:16, padding:'14px 18px', minWidth:240, maxWidth:320,
+              borderRadius:16, padding:'14px 18px',
               display:'flex', alignItems:'center', gap:14,
               boxShadow:'0 0 30px rgba(74,222,128,0.1)',
             }}>
@@ -179,9 +179,9 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
               </div>
             </div>
           ) : nextClass ? (
-            <div style={{
+            <div className="status-widget" style={{
               background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.3)',
-              borderRadius:16, padding:'14px 18px', minWidth:240, maxWidth:320,
+              borderRadius:16, padding:'14px 18px',
               display:'flex', alignItems:'center', gap:14,
             }}>
               <div style={{ width:46, height:46, borderRadius:12, background:'rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -203,9 +203,9 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
               </div>
             </div>
           ) : (
-            <div style={{
+            <div className="status-widget" style={{
               background:'rgba(15,23,42,0.7)', border:'1px solid rgba(30,41,59,0.7)',
-              borderRadius:16, padding:'14px 18px', minWidth:200,
+              borderRadius:16, padding:'14px 18px',
               display:'flex', alignItems:'center', gap:12,
             }}>
               <CheckCircle2 size={28} style={{ color:'#4ade80', flexShrink:0 }} />
@@ -236,7 +236,7 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
 
         {/* Day Switcher */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', borderTop:'1px solid rgba(30,41,59,0.6)', paddingTop:18 }}>
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          <div className="day-switcher-container">
             {DAY_NAMES.map(day => {
               const count = getMergedDaySlots(day).length;
               const active = selectedDay === day;
@@ -253,6 +253,7 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
                     color: active ? '#a5b4fc' : '#475569',
                     boxShadow: active ? '0 0 12px rgba(99,102,241,0.15)' : 'none',
                     position:'relative',
+                    flexShrink: 0,
                   }}
                 >
                   {isTodayDay && (
@@ -284,7 +285,7 @@ export const TodaySummary: React.FC<TodaySummaryProps> = ({
           <p style={{ fontSize:12, color:'#334155', margin:0 }}>Enjoy the free day or use it for self-study!</p>
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14 }}>
           {daySlots.map(slot => {
             const course = COURSES[slot.subjectCode];
             const room = getRoom(slot);
