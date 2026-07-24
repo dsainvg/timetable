@@ -8972,7 +8972,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
     "id": "i61",
     "company": "Rubrik",
-    "ctc": 10500003250000539345500705390592,
+    "ctc": 625000,
     "currency": "INR",
     "applyStatus": "Y",
     "resumeStart": "2026-07-22 15:05",
@@ -8986,7 +8986,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "jnfId": "1",
     "comId": "40",
     "cgpaCutoff": "8.0",
-    "stipend": "BASE - 1050000 ( FOR 3 MONTHS) SIGN ON BONUS - 250000 ACCOMMODATION - 540000 FLIGHTS - 25000 TOTAL - 1865000 INR",
+    "stipend": "625000",
     "allowedDepts": [
       "COMPUTER SCIENCE AND ENGINEERING",
       "MATHEMATICS"
@@ -9013,7 +9013,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
   {
     "id": "i62",
     "company": "Rubrik",
-    "ctc": 10500003250000539345500705390592,
+    "ctc": 625000,
     "currency": "INR",
     "applyStatus": "Y",
     "resumeStart": "2026-07-22 15:05",
@@ -9027,7 +9027,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
     "jnfId": "2",
     "comId": "40",
     "cgpaCutoff": "8.0",
-    "stipend": "BASE - 1050000 ( FOR 3 MONTHS) SIGN ON BONUS - 250000 ACCOMMODATION - 540000 FLIGHTS - 25000 TOTAL - 1865000 INR INR",
+    "stipend": "625000",
     "allowedDepts": [
       "COMPUTER SCIENCE AND ENGINEERING",
       "MATHEMATICS"
@@ -9042,7 +9042,7 @@ export const INTERN_COMPANIES_DEFAULT: InternCompany[] = [
       "DUAL DEGREE --- MATHEMATICS AND COMPUTING/ARTIFICIAL INTELLIGENCE MACHINE LEARNING AND APPLICATIONS",
       "M.SC(5YR) --- MATHEMATICS & COMPUTING (M.SC. 5Y)"
     ],
-    "jobDescription": "ABOUT THE JOB We are looking for a Software Engineer US Role- Intern to join our team. We believe in giving engineers responsibility, not tasks. Our goal is to motivate and challenge people to do their best work. To do that, we have a very fluid structure and give people the flexibility to work on projects that they enjoy the most. This develops more capable engineers and keeps everyone engaged and happy. Responsibilities - Design, develop, test, deploy, maintain and improve the software. - Manage individual projects priorities, deadlines, and deliverables with your technical expertise. - Identify and solve bottlenecks within our software stack. About You Rubrik Software Engineer - Interns are self-starters, driven, and can manage themselves. Bottom line, if you have a limitless drive and like to win, we want to talk to you - come make history! - Bachelors or Masters degree or equivalent in computer science or related field - Proficiency in one or more general-purpose programming languages like Java, C/C++, Scala, Python Minimum eligibility criteria - CGPA 8 and above 2027 graduates of Circuital branches only - Available from April/May 2027 to June/July 2027 in Bangalore for the onsite internship (No remote options)",
+    "jobDescription": "ABOUT THE JOB We are looking for a Software Engineer US Role- Intern to join our team. We believe in giving engineers responsibility, not tasks. Our goal is to motivate and challenge people to do their best work. To do that, we have a very fluid structure and give people the flexibility to work on projects that they enjoy the most. This develops more capable engineers and keeps everyone engaged and happy. Responsibilities - Design, develop, test, deploy, maintain and improve the software. - Manage individual projects priorities, deadlines, and deliverables with your technical expertise. - Identify and solve bottlenecks within our software stack. About You Rubrik Software Engineer - Interns are self-starters, driven, and can manage themselves. Bottom line, if you have a limitless drive and like to win, we want to talk to you - come make history! - Bachelor’s or Master’s degree or equivalent in computer science or related field - Proficiency in one or more general-purpose programming languages like Java, C/C++, Scala, Python Minimum eligibility criteria - CGPA 8 and above 2027 graduates of Circuital branches only - Available from April/May 2027 to June/July 2027 in Bangalore for the onsite internship (No remote options)",
     "selectionProcess": "",
     "skillsRequired": "",
     "duration": "",

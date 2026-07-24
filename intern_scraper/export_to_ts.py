@@ -15,6 +15,13 @@ def parse_ctc(ctc_val):
     except Exception:
         return 0
 
+def slugify(text: str) -> str:
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9]+', '_', text)
+    return text.strip('_')
+
 def convert():
     if not os.path.exists(DETAILED_JSON):
         print(f"File not found: {DETAILED_JSON}")
@@ -38,28 +45,45 @@ def convert():
                 existing_items = json.loads(m.group(1))
 
             for item in existing_items:
-                existing_map[item['id']] = item
-                if item.get('comId') and item.get('jnfId'):
-                    key_to_id_map[(str(item['comId']), str(item['jnfId']))] = item['id']
+                role_id = item['id']
+                existing_map[role_id] = item
+                c_name = item.get('company', '')
+                j_id = str(item.get('jnfId') or '')
+                c_id = str(item.get('comId') or '')
+                pos = item.get('positionNote') or ''
+
+                if c_id and j_id:
+                    key_to_id_map[("com_jnf_id", c_id, j_id)] = role_id
+                if c_name and j_id:
+                    key_to_id_map[("name_jnf", slugify(c_name), j_id)] = role_id
+                if c_name and pos:
+                    key_to_id_map[("name_pos", slugify(c_name), slugify(pos))] = role_id
+                if c_name:
+                    key_to_id_map[("name_only", slugify(c_name))] = role_id
 
     formatted_roles = []
     for idx, r in enumerate(roles, 1):
+        company_name = r.get("company_name", "Unknown")
         com_id = str(r.get("com_id") or "")
         jnf_id = str(r.get("jnf_id") or "")
-        comp_key = (com_id, jnf_id)
+        jnf_details = r.get("jnf_details", {})
+        pos_note = jnf_details.get("form_type") or r.get("apply_acceptance") or ""
 
-        # 1. Deterministic permanent ID lookup
-        if comp_key in key_to_id_map:
-            role_id = key_to_id_map[comp_key]
-        elif r.get("company_name") == "Databricks":
-            role_id = "i75"
-        else:
-            role_id = f"com_{com_id}_jnf_{jnf_id}" if (com_id and jnf_id) else f"custom_{idx}"
+        # Multi-key deterministic ID resolution
+        role_id = None
+        if com_id and jnf_id and ("com_jnf_id", com_id, jnf_id) in key_to_id_map:
+            role_id = key_to_id_map[("com_jnf_id", com_id, jnf_id)]
+        elif company_name and jnf_id and ("name_jnf", slugify(company_name), jnf_id) in key_to_id_map:
+            role_id = key_to_id_map[("name_jnf", slugify(company_name), jnf_id)]
+        elif company_name and pos_note and ("name_pos", slugify(company_name), slugify(pos_note)) in key_to_id_map:
+            role_id = key_to_id_map[("name_pos", slugify(company_name), slugify(pos_note))]
+        elif company_name and ("name_only", slugify(company_name)) in key_to_id_map:
+            role_id = key_to_id_map[("name_only", slugify(company_name))]
+
+        if not role_id:
+            role_id = f"role_{slugify(company_name)}_{slugify(pos_note or jnf_id or str(idx))}"
 
         existing = existing_map.get(role_id, {})
-        jnf_details = r.get("jnf_details", {})
-
-        pos_note = jnf_details.get("form_type") or r.get("apply_acceptance") or ""
 
         entry = {
             "id": role_id,
