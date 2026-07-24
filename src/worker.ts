@@ -418,10 +418,15 @@ function getISTDate(date = new Date()) {
   return { year, month, day, hours, minutes, dayOfWeek, dateString };
 }
 
-// ─── DAILY MORNING SUMMARY (6:00 AM IST) ──────────────────────────────
+// ─── DAILY MORNING SUMMARY (6:00 AM IST - NEXT 24 HOURS HORIZON) ──────
 async function sendDailyMorningSummary(env: Env, recipient: string) {
   const ist = getISTDate();
   const todayStr = ist.dateString;
+  
+  const tomorrowDateObj = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const tomorrowIst = getISTDate(tomorrowDateObj);
+  const tomorrowStr = tomorrowIst.dateString;
+
   const summaryKey = `daily-summary-${todayStr}`;
 
   const check = await env.DB.prepare(
@@ -448,84 +453,89 @@ async function sendDailyMorningSummary(env: Env, recipient: string) {
     console.error('Failed to load room preferences for morning summary:', e);
   }
 
-  // 2. Fetch today's classes
+  // 2. Fetch classes for Next 24 Hours
   const DAY_MAP: Record<number, string> = {
-    1: 'Mon',
-    2: 'Tue',
-    3: 'Wed',
-    4: 'Thur',
-    5: 'Fri',
+    1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thur', 5: 'Fri',
   };
-  const dayName = DAY_MAP[ist.dayOfWeek];
-  let classesHtml = '';
-  if (dayName) {
-    const todaySlots = SCHEDULE_GRID.filter(s => s.day === dayName)
-      .sort((a, b) => a.slotIndex - b.slotIndex);
+  const todayDayName = DAY_MAP[ist.dayOfWeek];
+  const tomorrowDayName = DAY_MAP[tomorrowIst.dayOfWeek];
 
-    if (todaySlots.length > 0) {
-      classesHtml = todaySlots.map(s => {
-        const course = COURSES[s.subjectCode];
-        const room = roomPrefs[s.subjectCode] || s.defaultRoom;
-        const color = course?.color || '#6366f1';
-        const courseName = course?.name || s.subjectCode;
-        const shortName = course?.shortName || s.subjectCode;
-        return `
-          <div class="card" style="border-left: 4px solid ${color};">
-            <div class="card-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <span style="font-weight: 800; color: #f8fafc;">🏫 [${shortName}] ${courseName}</span>
-              <span style="font-size: 11px; background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); border-radius: 6px; padding: 2px 8px; font-weight: 700; font-family: monospace; white-space: nowrap;">
-                📍 ${room}
-              </span>
-            </div>
-            <div class="card-sub" style="font-size: 12px; color: #94a3b8;">
-              Time slot: <strong>${s.startTime} - ${s.endTime}</strong> ${s.labSpan ? `(${s.labSpan}h block)` : ''}
-            </div>
+  const todaySlots = todayDayName
+    ? SCHEDULE_GRID.filter(s => s.day === todayDayName).sort((a, b) => a.slotIndex - b.slotIndex)
+    : [];
+
+  const tomorrowSlots = tomorrowDayName
+    ? SCHEDULE_GRID.filter(s => s.day === tomorrowDayName).sort((a, b) => a.slotIndex - b.slotIndex)
+    : [];
+
+  const combinedSlots = [
+    ...todaySlots.map(s => ({ ...s, dayTag: "Today" })),
+    ...tomorrowSlots.map(s => ({ ...s, dayTag: "Tomorrow" })),
+  ];
+
+  let classesHtml = '';
+  if (combinedSlots.length > 0) {
+    classesHtml = combinedSlots.map(s => {
+      const course = COURSES[s.subjectCode];
+      const room = roomPrefs[s.subjectCode] || s.defaultRoom;
+      const color = course?.color || '#6366f1';
+      const courseName = course?.name || s.subjectCode;
+      const shortName = course?.shortName || s.subjectCode;
+      return `
+        <div class="card" style="border-left: 4px solid ${color};">
+          <div class="card-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-weight: 800; color: #f8fafc;">🏫 [${shortName}] ${courseName}</span>
+            <span style="font-size: 11px; background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); border-radius: 6px; padding: 2px 8px; font-weight: 700; font-family: monospace; white-space: nowrap;">
+              📍 ${room} (${s.dayTag})
+            </span>
           </div>
-        `;
-      }).join('');
-    } else {
-      classesHtml = '<div class="card"><div class="card-title">🎉 Free Day!</div><div class="card-sub">No classes scheduled for today.</div></div>';
-    }
+          <div class="card-sub" style="font-size: 12px; color: #94a3b8;">
+            Time slot: <strong>${s.startTime} - ${s.endTime}</strong> ${s.labSpan ? `(${s.labSpan}h block)` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
   } else {
-    classesHtml = '<div class="card"><div class="card-title">🎉 Weekend!</div><div class="card-sub">No classes scheduled on weekends.</div></div>';
+    classesHtml = '<div class="card"><div class="card-title">🎉 Free Day!</div><div class="card-sub">No classes scheduled in the next 24 hours.</div></div>';
   }
 
-  // 3. Fetch due tasks
+  // 3. Fetch due tasks, tests & interviews due in Next 24 Hours
   const { results: dueTasks } = await env.DB.prepare(
-    "SELECT * FROM reminders WHERE due_date = ? AND status = 'pending'"
-  ).bind(todayStr).all();
+    "SELECT * FROM reminders WHERE status = 'pending' AND (due_date = ? OR due_date = ?) ORDER BY due_date ASC, due_time ASC"
+  ).bind(todayStr, tomorrowStr).all();
 
   const taskList = (dueTasks || []) as any[];
   const tasksHtml = taskList.length > 0
     ? taskList.map(t => {
         const subName = getSubjectDisplayName(t.subject_code);
+        const dayTag = t.due_date === todayStr ? 'Today' : 'Tomorrow';
         return `
           <div class="card">
             <div class="card-title">📌 [${subName}] ${t.title}</div>
-            <div class="card-sub">Due: ${t.due_time || '23:59'} • ${t.description || 'No additional details'}</div>
+            <div class="card-sub">Due: <strong>${dayTag} at ${t.due_time || '23:59'}</strong> • ${t.description || 'No additional details'}</div>
             <span class="badge badge-${t.priority || 'high'}">${(t.priority || 'HIGH').toUpperCase()}</span>
           </div>
         `;
       }).join('')
-    : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks due today.</div></div>';
+    : '<div class="card"><div class="card-title">✨ All Caught Up!</div><div class="card-sub">No pending tasks, tests or interviews in the next 24 hours.</div></div>';
 
   const html = buildHtmlEmail({
-    title: '🌅 Daily Morning Summary (6:00 AM IST)',
-    subtitle: `Date: ${todayStr} • Roll No: 24CS10097`,
+    title: '🌅 Daily Summary & 24-Hour Horizon Report',
+    subtitle: `Next 24 Hours Window (${todayStr} to ${tomorrowStr}) • Roll No: 24CS10097`,
     accentColor: '#6366f1',
     contentHtml: `
       <h3 style="color:#818cf8; margin-top:0; font-size:16px;">Good Morning!</h3>
-      <p style="color:#94a3b8; font-size:13px;">Here is your daily schedule and task breakdown for today (${todayStr}):</p>
+      <p style="color:#94a3b8; font-size:13px;">Here is your accurate <strong>Next 24 Hours</strong> schedule, test breakdown, and task agenda (${todayStr} – ${tomorrowStr}):</p>
       
-      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📅 Today's Classes:</h4>
+      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📅 Next 24 Hours Classes:</h4>
       ${classesHtml}
 
-      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks Due Today:</h4>
+      <h4 style="color:#f8fafc; margin:20px 0 10px; font-size:14px;">📋 Tasks & Tests Due (Next 24 Hours):</h4>
       ${tasksHtml}
     `,
   });
 
-  const subject = `🌅 [Daily Morning Summary] ${todayStr} - IIT Kharagpur`;
+  const subject = `🌅 [Next 24 Hours Summary] ${todayStr} - IIT Kharagpur`;
   await dispatchEmail(env, { recipient, subject, html });
 
   await env.DB.prepare(

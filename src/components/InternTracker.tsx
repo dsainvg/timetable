@@ -151,20 +151,31 @@ export const InternTracker: React.FC = () => {
   const [selectedDayVal, setSelectedDayVal] = useState<string>('');
   const [selectedTimeVal, setSelectedTimeVal] = useState<string>('10:00 AM');
 
+  const DETAILED_TIME_SLOTS = useMemo(() => {
+    const slots: string[] = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        const hStr = h12 < 10 ? `0${h12}` : `${h12}`;
+        const mStr = m < 10 ? `0${m}` : `${m}`;
+        slots.push(`${hStr}:${mStr} ${period}`);
+      }
+    }
+    slots.push('11:59 PM');
+    return slots;
+  }, []);
+
   const openInterviewPicker = (intern: InternCompany) => {
     setEditInterviewId(intern.id);
     const matchOpt = QUICK_DATE_OPTIONS.find(o => intern.interviewDate.includes(o.value));
     setSelectedDayVal(matchOpt ? matchOpt.value : QUICK_DATE_OPTIONS[7].value);
-    setSelectedTimeVal('10:00 AM');
-  };
 
-  const saveInterview = (id: string, dateVal?: string) => {
-    const role = interns.find(i => i.id === id);
-    if (role) {
-      const valToSave = dateVal !== undefined ? dateVal : `${selectedDayVal}, ${selectedTimeVal}`;
-      const updatedRole = { ...role, interviewDate: valToSave };
-      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
-      setEditInterviewId(null);
+    const timeMatch = intern.interviewDate.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
+    if (timeMatch) {
+      setSelectedTimeVal(timeMatch[1]);
+    } else {
+      setSelectedTimeVal('10:00 AM');
     }
   };
 
@@ -197,8 +208,6 @@ export const InternTracker: React.FC = () => {
     }
   }, []);
 
-
-  // Only ONE company can be SORTED at a time (radio behavior)
   const toggleSorted = (id: string) => {
     const role = interns.find(i => i.id === id);
     if (!role) return;
@@ -213,7 +222,6 @@ export const InternTracker: React.FC = () => {
     saveInternData(nextList);
     saveInternRole(updatedRole);
     
-    // Clear other sorted items in DB
     interns.forEach(i => {
       if (i.id !== id && i.sortingDone) {
         saveInternRole({ ...i, sortingDone: false });
@@ -238,6 +246,16 @@ export const InternTracker: React.FC = () => {
     }
   };
 
+  const saveInterview = (id: string, dateVal?: string) => {
+    const role = interns.find(i => i.id === id);
+    if (role) {
+      const valToSave = dateVal !== undefined ? dateVal : `${selectedDayVal}, ${selectedTimeVal}`;
+      const updatedRole = { ...role, interviewDate: valToSave };
+      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
+      setEditInterviewId(null);
+    }
+  };
+
   const renderDatePicker = (intern: InternCompany) => (
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
       <select
@@ -256,23 +274,29 @@ export const InternTracker: React.FC = () => {
         ))}
       </select>
 
-      <select
-        value={selectedTimeVal}
-        onChange={e => setSelectedTimeVal(e.target.value)}
-        style={{
-          background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(99,102,241,0.4)',
-          borderRadius: 6, padding: '3px 6px', color: '#4ade80',
-          fontSize: 11, fontWeight: 700, outline: 'none', cursor: 'pointer',
-        }}
-      >
-        {['09:00 AM','10:00 AM','11:00 AM','02:00 PM','04:00 PM','06:00 PM','08:00 PM','11:59 PM'].map(t => (
-          <option key={t} value={t} style={{ background: '#0b0f19', color: '#e2e8f0' }}>{t}</option>
-        ))}
-      </select>
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <input
+          list={`time-list-${intern.id}`}
+          value={selectedTimeVal}
+          onChange={e => setSelectedTimeVal(e.target.value)}
+          placeholder="e.g. 10:15 AM"
+          style={{
+            background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(74,222,128,0.4)',
+            borderRadius: 6, padding: '3px 6px', color: '#4ade80',
+            fontSize: 11, fontWeight: 700, outline: 'none', width: 105,
+            fontFamily: 'monospace',
+          }}
+        />
+        <datalist id={`time-list-${intern.id}`}>
+          {DETAILED_TIME_SLOTS.map(t => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+      </div>
 
       <button
         onClick={() => saveInterview(intern.id)}
-        title="Save Date"
+        title="Save Date & Time"
         style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#4ade80', lineHeight: 1 }}
       >
         <Check size={11} />
