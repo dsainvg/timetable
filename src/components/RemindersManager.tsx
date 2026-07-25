@@ -118,7 +118,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
               Tasks & Submissions Portal
             </h2>
             <p style={{ fontSize:11, color:'#475569', marginTop:4 }}>
-              Synced • Email Alerts to <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>me@timio.dpdns.org</strong>
+              Synced • Email Alerts to <strong style={{ color:'#818cf8', fontFamily:'monospace' }}>sai@timio.dsainvg.me</strong>
             </p>
           </div>
 
@@ -508,7 +508,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   style={{ width:15, height:15, cursor:'pointer', accentColor:'#6366f1' }}
                 />
                 <span style={{ fontSize:12, color:'#94a3b8' }}>
-                  Send immediate email alert to <strong style={{ color:'#818cf8' }}>me@timio.dpdns.org</strong>
+                  Send immediate email alert to <strong style={{ color:'#818cf8' }}>sai@timio.dsainvg.me</strong>
                 </span>
               </label>
 

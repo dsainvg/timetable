@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS intern_roles (
 -- Table for tracking received inbound emails / trigger responses & executed actions
 CREATE TABLE IF NOT EXISTS email_logs (
   id TEXT PRIMARY KEY,
-  sender TEXT DEFAULT 'me@timio.dpdns.org',
+  sender TEXT DEFAULT 'sai@timio.dsainvg.me',
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
   action_count INTEGER DEFAULT 0,

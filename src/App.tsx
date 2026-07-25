@@ -163,7 +163,7 @@ export const App: React.FC = () => {
 
   const handleSendEmail = async (subject: string, text: string) => {
     showToast('Dispatching Gmail alert…', 'info');
-    const result = await sendEmailNotification({ recipient: 'me@timio.dpdns.org', subject, text });
+    const result = await sendEmailNotification({ recipient: 'sai@timio.dsainvg.me', subject, text });
     showToast(result.success ? 'Email delivered!' : `Notice: ${result.message}`, result.success ? 'success' : 'info');
   };
 

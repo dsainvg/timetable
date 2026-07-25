@@ -13,7 +13,7 @@ export interface Env {
   DEFAULT_EMAIL?: string;
 }
 
-const DEFAULT_RECIPIENT = 'me@timio.dpdns.org';
+const DEFAULT_RECIPIENT = 'sai@timio.dsainvg.me';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -388,7 +388,7 @@ async function ensureTables(db: any) {
       db.prepare(`
         CREATE TABLE IF NOT EXISTS email_logs (
           id TEXT PRIMARY KEY,
-          sender TEXT DEFAULT 'me@timio.dpdns.org',
+          sender TEXT DEFAULT 'sai@timio.dsainvg.me',
           subject TEXT NOT NULL,
           body TEXT NOT NULL,
           action_count INTEGER DEFAULT 0,

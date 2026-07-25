@@ -20,7 +20,7 @@ export const EmailLogsManager: React.FC<EmailLogsManagerProps> = ({ onRefreshDat
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [simText, setSimText] = useState('');
-  const [simSender, setSimSender] = useState('me@timio.dpdns.org');
+  const [simSender, setSimSender] = useState('sai@timio.dsainvg.me');
   const [simSubject, setSimSubject] = useState('Re: IIT KGP Daily Class & Tasks Update');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processNotice, setProcessNotice] = useState<{ type: 'success' | 'error' | null; message: string; results?: string[] }>({
@@ -47,7 +47,7 @@ export const EmailLogsManager: React.FC<EmailLogsManagerProps> = ({ onRefreshDat
     setProcessNotice({ type: null, message: '' });
 
     const result = await parseAndExecuteEmailResponse(content, {
-      sender: simSender.trim() || 'me@timio.dpdns.org',
+      sender: simSender.trim() || 'sai@timio.dsainvg.me',
       subject: simSubject.trim() || 'Inbound Email Response / Trigger',
     });
 
