@@ -349,14 +349,16 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
           const companySlug = companyName.toLowerCase().replace(/\W+/g, '');
           const remId = `rem-cdc-${companySlug}-${eventTypeClean}-${act.date}`;
 
-          // PPT -> Low Priority, Test/Interview -> High Priority
+          // PPT -> Low Priority & 'other' category; Test/Interview -> High Priority & 'exam' category
           const priority = eventTypeClean === 'ppt' ? 'low' : 'high';
+          const categoryType = eventTypeClean === 'ppt' ? 'other' : (/(test|exam|interview)/.test(eventTypeClean) ? 'exam' : 'other');
 
           await env.DB.prepare(`
             INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title,
+              type=excluded.type,
               due_date=excluded.due_date,
               due_time=excluded.due_time,
               priority=excluded.priority,
@@ -366,7 +368,7 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
             remId,
             `[CDC ${act.eventType}] ${companyName}`,
             'INTERNSHIP',
-            'exam',
+            categoryType,
             act.date,
             act.dueTime,
             priority,
