@@ -50,6 +50,8 @@ const COURSE_NAME_MAP: Record<string, { shortName: string; fullName: string }> =
   AI60213: { shortName: 'FLLM', fullName: 'Foundations of Large Language Models' },
   CS31003: { shortName: 'Compilers', fullName: 'Compilers' },
   CS39003: { shortName: 'Compilers Lab', fullName: 'Compilers Laboratory' },
+  INTERNSHIP: { shortName: 'Internship', fullName: 'CDC Internship Recruitment' },
+  INTERN: { shortName: 'Internship', fullName: 'CDC Internship Recruitment' },
 };
 
 function getSubjectDisplayName(code: string): string {
@@ -255,12 +257,20 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
         continue;
       }
 
-      if (/(remind|due|assignment|exam|test|prep|project)/i.test(lower)) {
-        let matchedSub = 'GENERAL';
+      if (/(remind|due|assignment|exam|test|prep|project|interview|cdc|intern)/i.test(lower)) {
+        let matchedSub = '';
         for (const [key, code] of Object.entries(subjectMap)) {
           if (lower.includes(key)) {
             matchedSub = code;
             break;
+          }
+        }
+
+        if (!matchedSub) {
+          if (/(intern|cdc|interview|company|ppt|test|placement|stipend)/i.test(lower)) {
+            matchedSub = 'INTERNSHIP';
+          } else {
+            matchedSub = 'CS31007'; // Default Comp Org
           }
         }
 

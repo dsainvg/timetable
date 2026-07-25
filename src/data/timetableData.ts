@@ -117,6 +117,16 @@ export const COURSES: Record<string, Course> = {
     color: '#ef4444', // Red
     defaultRoom: 'Lab',
   },
+  INTERNSHIP: {
+    code: 'INTERNSHIP',
+    name: 'CDC INTERNSHIP RECRUITMENT',
+    shortName: 'Internship',
+    ltp: '0-0-0',
+    credits: 0,
+    type: 'CDC Recruitment',
+    color: '#f43f5e', // Rose / Vibrant Red
+    defaultRoom: 'CDC',
+  },
 };
 
 export const MORNING_SLOTS = [
