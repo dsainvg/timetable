@@ -21,6 +21,13 @@ const ALLOWED_TRIGGER_SENDERS = [
   'dsainvg@gmail.com',
 ];
 
+function parseEmailAddress(rawFrom: string): string {
+  if (!rawFrom) return '';
+  const angleMatch = rawFrom.match(/<([^>]+)>/);
+  if (angleMatch) return angleMatch[1].trim().toLowerCase();
+  return rawFrom.trim().toLowerCase();
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -1768,7 +1775,7 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
           return json({ success: false, message: 'emailText is required.' }, 400);
         }
 
-        const sender = (body.sender || 'dsainvg@gmail.com').trim().toLowerCase();
+        const sender = parseEmailAddress(body.sender || 'dsainvg@gmail.com');
         const isAllowedSender = ALLOWED_TRIGGER_SENDERS.some(allowed => sender.includes(allowed.toLowerCase()));
 
         if (!isAllowedSender) {
@@ -1853,9 +1860,10 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
 
   // ─── CLOUDFLARE EMAIL ROUTING TRIGGER HANDLER ───────────────────
   async email(message: any, env: Env, _ctx: any): Promise<void> {
-    const sender = (message.from || '').toLowerCase().trim();
+    const rawFrom = message.from || '';
+    const sender = parseEmailAddress(rawFrom);
     const subject = message.headers?.get('subject') || 'Inbound Email Trigger';
-    console.log(`[EMAIL ROUTING TRIGGER RECEIVED] From: ${sender}, Subject: ${subject}`);
+    console.log(`[EMAIL ROUTING TRIGGER RECEIVED] From: "${rawFrom}" (Parsed: ${sender}), Subject: ${subject}`);
 
     const isAllowedSender = ALLOWED_TRIGGER_SENDERS.some(allowed => sender.includes(allowed.toLowerCase()));
     if (!isAllowedSender) {
