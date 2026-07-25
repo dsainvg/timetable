@@ -562,7 +562,7 @@ export async function parseAndExecuteEmailResponse(emailText: string, options?: 
       body: JSON.stringify({
         emailText,
         autoExecute: true,
-        sender: options?.sender || 'sai@timio.dsainvg.me',
+        sender: options?.sender || 'dsainvg@gmail.com',
         subject: options?.subject || 'Inbound Email Response / Trigger',
       }),
     });

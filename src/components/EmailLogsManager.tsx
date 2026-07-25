@@ -20,7 +20,7 @@ export const EmailLogsManager: React.FC<EmailLogsManagerProps> = ({ onRefreshDat
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [simText, setSimText] = useState('');
-  const [simSender, setSimSender] = useState('sai@timio.dsainvg.me');
+  const [simSender, setSimSender] = useState('dsainvg@gmail.com');
   const [simSubject, setSimSubject] = useState('Re: IIT KGP Daily Class & Tasks Update');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processNotice, setProcessNotice] = useState<{ type: 'success' | 'error' | null; message: string; results?: string[] }>({
@@ -263,13 +263,16 @@ This is an automated notification from CDC ERP Bot.`,
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Sender Email</label>
-              <input
-                type="text"
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Sender Email (Allowed Triggers)</label>
+              <select
                 value={simSender}
                 onChange={(e) => setSimSender(e.target.value)}
-                style={{ width: '100%', background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(51,65,85,0.7)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#cbd5e1', fontFamily: 'monospace', boxSizing: 'border-box' }}
-              />
+                style={{ width: '100%', background: 'rgba(3,7,18,0.8)', border: '1px solid rgba(51,65,85,0.7)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#cbd5e1', fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none' }}
+              >
+                <option value="dsainvg@gmail.com">dsainvg@gmail.com (Primary Trigger)</option>
+                <option value="onlyforgdb@gmail.com">onlyforgdb@gmail.com (Secondary Trigger)</option>
+                <option value="dsainvg@hotmail.com">dsainvg@hotmail.com (Secondary Trigger)</option>
+              </select>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Subject</label>

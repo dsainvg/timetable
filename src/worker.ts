@@ -13,7 +13,13 @@ export interface Env {
   DEFAULT_EMAIL?: string;
 }
 
-const DEFAULT_RECIPIENT = 'sai@timio.dsainvg.me';
+const DEFAULT_RECIPIENT = 'me@timio.dpdns.org';
+
+const ALLOWED_TRIGGER_SENDERS = [
+  'dsainvg@hotmail.com',
+  'onlyforgdb@gmail.com',
+  'dsainvg@gmail.com',
+];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -1349,6 +1355,16 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
         const emailText = (body.emailText || '').trim();
         if (!emailText) {
           return json({ success: false, message: 'emailText is required.' }, 400);
+        }
+
+        const sender = ((body as any).sender || 'dsainvg@gmail.com').trim().toLowerCase();
+        const isAllowedSender = ALLOWED_TRIGGER_SENDERS.some(allowed => sender.includes(allowed.toLowerCase()));
+
+        if (!isAllowedSender) {
+          return json({
+            success: false,
+            message: `Unauthorized sender "${sender}". Inbound email triggers are only allowed from: ${ALLOWED_TRIGGER_SENDERS.join(', ')}`,
+          }, 403);
         }
 
         const autoExecute = body.autoExecute !== false; // Default true
