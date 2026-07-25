@@ -101,6 +101,156 @@ function extractPlainTextFromMIME(raw: string): string {
   return raw;
 }
 
+// ─── AI DECIDER & SANITIZATION HELPERS ──────────────────────────────
+function isGibberishOrDisclaimer(text: string): boolean {
+  if (!text || text.trim().length < 3) return true;
+  const lower = text.toLowerCase();
+  const noisePatterns = [
+    'do not reply', 'automated notification', 'system notification', 'system generated',
+    'cdc erp bot', 'confidentiality notice', 'all rights reserved', 'sent from my',
+    'disclaimer', 'dear student', 'thanks & regards', 'link for the ppt will be shared',
+    'candidates are required', 'instructions will be shared', 'for any queries',
+    'feel free to reach', 'regards,', 'sincerely,', 'this email is intended',
+    'attachment', 'google groups', 'download the file', 'unsubscribe', 'portal notification'
+  ];
+  return noisePatterns.some(pat => lower.includes(pat));
+}
+
+function cleanTaskTitle(rawTitle: string): string {
+  if (!rawTitle) return 'Task';
+  let title = rawTitle.replace(/^(remind me|remind|please|set reminder for|due:|note:|subject:|\d+\.\s*|\[.*?\])\s*/gi, '').trim();
+  title = title.replace(/\s+(due|by|at)\s+\d{4}-\d{2}-\d{2}.*$/gi, '').trim();
+  title = title.replace(/\s+(high|medium|low)\s+priority.*$/gi, '').trim();
+  if (title.length > 55) {
+    title = title.substring(0, 52).trim() + '…';
+  }
+  return title || 'Task';
+}
+
+async function extractActionsWithAI(env: Env, emailText: string): Promise<any[]> {
+  if (!env.AI) return [];
+  try {
+    const systemPrompt = `You are an expert AI task & academic action extractor for an IIT Kharagpur CSE student.
+Extract ONLY GENUINE, ACTIONABLE student items mentioned in the text into a JSON array of objects.
+
+STRICT RULES:
+1. DO NOT extract email disclaimers, signatures, "do not reply" footers, system notifications, or general policy/rules text.
+2. For each task, construct a short, crisp, human-readable title (max 5-6 words, e.g. "CDC Test: Irage", "Compilers Lab Assignment", "HPPC Class Attendance"). NEVER raw-copy entire paragraphs or disclaimers as titles.
+3. Map subjects to codes:
+   - HPPC -> CS61064
+   - Comp Org Lab -> CS39001
+   - Algo 2 -> CS31005
+   - Comp Org / Architecture -> CS31007
+   - FLLM / LLM -> AI60213
+   - Compilers -> CS31003
+   - Compilers Lab -> CS39003
+   - CDC / Internship / Company Placement -> INTERNSHIP
+   - General / Other -> GENERAL
+
+Action Types (3 schemas):
+
+1. Attendance:
+{"type": "attendance", "subject_code": "CS31007", "date": "YYYY-MM-DD", "status": "attended"|"missed"|"cancelled", "note": "optional brief note"}
+
+2. Reminder / Task:
+{"type": "reminder", "title": "Compilers Lab 1", "subject_code": "CS39003", "reminder_type": "assignment"|"class"|"exam"|"project"|"other", "due_date": "YYYY-MM-DD", "due_time": "HH:MM", "priority": "high"|"medium"|"low", "description": "brief details"}
+
+3. Intern Role Update:
+{"type": "intern", "company": "Company Name", "myStatus": "applied"|"oa_good"|"shortlisted"|"interview_good"|"offered"|"rejected", "interviewDate": "DD Mon, HH:MM AM/PM", "notes": "text"}
+
+OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO EXPLANATION.`;
+
+    const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: emailText },
+      ],
+    });
+
+    const rawContent = (aiRes.response || '').trim();
+    const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+  } catch (err) {
+    console.error('[AI EXTRACTION ERROR]', err);
+  }
+  return [];
+}
+
+async function decideAndRefineActions(env: Env, originalText: string, candidates: any[]): Promise<any[]> {
+  if (!Array.isArray(candidates) || candidates.length === 0) return [];
+
+  // Local pre-filtering of obvious noise/gibberish
+  const filtered = candidates.filter((act) => {
+    if (!act || typeof act !== 'object') return false;
+    const titleText = act.title || act.company || act.description || '';
+    if (isGibberishOrDisclaimer(titleText)) return false;
+    if (act.description && isGibberishOrDisclaimer(act.description)) {
+      act.description = ''; // Strip disclaimer description
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) return [];
+
+  if (env.AI) {
+    try {
+      const deciderPrompt = `You are the Final Action Decider & Parameter Refiner for an IIT Kharagpur student app.
+Analyze the ORIGINAL TEXT and candidate extracted actions below:
+
+ORIGINAL TEXT:
+"""
+${originalText.substring(0, 1500)}
+"""
+
+CANDIDATE ACTIONS:
+${JSON.stringify(filtered, null, 2)}
+
+DECISION & REFINEMENT INSTRUCTIONS:
+1. REJECT/FILTER OUT any candidate action that is UNWANTED GIBBERISH, boilerplate text, email disclaimers, system notifications, or non-actionable chatter.
+2. REFINE & NORMALIZE parameters for APPROVED valid actions:
+   - "title": Short (3-6 words), crisp, actionable name (e.g., "CDC Test: Irage", "Compilers Assignment 1"). NEVER a raw copied disclaimer or paragraph.
+   - "subject_code": Valid code (CS61064, CS39001, CS31005, CS31007, AI60213, CS31003, CS39003, INTERNSHIP, GENERAL).
+   - "type": "assignment"|"class"|"exam"|"project"|"other" for reminders, or "attendance" or "intern" or "cdc_schedule".
+   - "due_date": YYYY-MM-DD.
+   - "due_time": HH:MM (24-hour format).
+   - "priority": "high"|"medium"|"low".
+   - "description": Concise pertinent summary (location, POC, mode), strictly without email footers or disclaimers.
+
+OUTPUT ONLY THE FINAL DECIDED JSON ARRAY OF ACTIONS. NO MARKDOWN.`;
+
+      const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+        messages: [
+          { role: 'system', content: 'You filter out gibberish and output clean valid JSON arrays.' },
+          { role: 'user', content: deciderPrompt },
+        ],
+      });
+
+      const rawContent = (aiRes.response || '').trim();
+      const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const decided = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(decided)) return decided;
+      }
+    } catch (err) {
+      console.error('[AI DECIDER ERROR, FALLING BACK TO HEURISTIC DECIDER]', err);
+    }
+  }
+
+  // Deterministic Fallback Decider
+  return filtered.map((act) => {
+    if (act.type === 'reminder') {
+      return {
+        ...act,
+        title: cleanTaskTitle(act.title || act.description),
+        description: isGibberishOrDisclaimer(act.description) ? '' : act.description,
+      };
+    }
+    return act;
+  });
+}
+
 async function processInboundEmailTrigger(
   env: Env,
   sender: string,
@@ -115,7 +265,7 @@ async function processInboundEmailTrigger(
   executionResults: string[];
   message?: string;
 }> {
-  let parsedActions: any[] = [];
+  let rawCandidates: any[] = [];
 
   // 0. CDC Schedule Bulletin Detection & Parsing
   const isCDCSchedule = /CDC|Internship schedule|Google Groups|CDC ERP Bot/i.test(emailText) || /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
@@ -160,7 +310,7 @@ async function processInboundEmailTrigger(
         dueTime = `${h < 10 ? '0' + h : h}:${m}`;
       }
 
-      parsedActions.push({
+      rawCandidates.push({
         type: 'cdc_schedule',
         company: companyName,
         eventType: eventType.toUpperCase(),
@@ -174,44 +324,14 @@ async function processInboundEmailTrigger(
     }
   }
 
-  // 1. Attempt Cloudflare Workers AI parsing if available and not CDC schedule
-  if (parsedActions.length === 0 && env.AI) {
-    try {
-      const systemPrompt = `You are a strict JSON extraction assistant for an IIT Kharagpur CSE student app.
-Extract ALL distinct student actions mentioned in the input text into a JSON array of objects.
-Actions can be of 3 types:
-
-1. Attendance Log:
-{"type": "attendance", "subject_code": "CS31007", "date": "YYYY-MM-DD", "status": "attended"|"missed"|"cancelled", "note": "optional note"}
-
-2. Class Reminder:
-{"type": "reminder", "title": "Assignment 1", "subject_code": "CS31003", "reminder_type": "assignment"|"class"|"exam"|"project"|"other", "due_date": "YYYY-MM-DD", "due_time": "HH:MM", "priority": "high"|"medium"|"low", "description": "text"}
-
-3. Intern Company Update:
-{"type": "intern", "company": "Company Name", "myStatus": "applied"|"oa_good"|"shortlisted"|"interview_good"|"offered"|"rejected", "interviewDate": "DD Mon, HH:MM AM/PM", "notes": "text"}
-
-OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
-
-      const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: emailText },
-        ],
-      });
-
-      const rawContent = (aiRes.response || '').trim();
-      const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        parsedActions = JSON.parse(jsonMatch[0]);
-      }
-    } catch (aiErr) {
-      console.error('[AI PARSE ERROR, FALLING BACK TO REGEX ENGINE]', aiErr);
-    }
+  // 1. Attempt Workers AI extraction if available
+  if (rawCandidates.length === 0 && env.AI) {
+    rawCandidates = await extractActionsWithAI(env, emailText);
   }
 
-  // 2. Smart Heuristic Regex Fallback Parser Engine
-  if (!Array.isArray(parsedActions) || parsedActions.length === 0) {
-    parsedActions = [];
+  // 2. Smart Heuristic Regex Fallback Engine with Noise Filtering
+  if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
+    rawCandidates = [];
     const todayStr = getISTDate().dateString;
     const sentences = emailText.split(/(?:\.|\n|;|\band\b)+/gi).map((s) => s.trim()).filter(Boolean);
 
@@ -226,6 +346,8 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
     };
 
     for (const s of sentences) {
+      if (isGibberishOrDisclaimer(s)) continue; // Filter out disclaimers/noise
+
       const lower = s.toLowerCase();
 
       if (/(attended|present|missed|bunked|absent|cancelled)/i.test(lower)) {
@@ -247,12 +369,12 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
           logDate = getISTDate(yDate).dateString;
         }
 
-        parsedActions.push({
+        rawCandidates.push({
           type: 'attendance',
           subject_code: matchedSub,
           date: logDate,
           status,
-          note: `Parsed from email: "${s}"`,
+          note: `Parsed: "${s}"`,
         });
         continue;
       }
@@ -270,7 +392,7 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
           if (/(intern|cdc|interview|company|ppt|test|placement|stipend)/i.test(lower)) {
             matchedSub = 'INTERNSHIP';
           } else {
-            matchedSub = 'CS31007'; // Default Comp Org
+            matchedSub = 'CS31007';
           }
         }
 
@@ -291,9 +413,9 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
         const timeMatch = s.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
         if (timeMatch) dueTime = timeMatch[1];
 
-        parsedActions.push({
+        rawCandidates.push({
           type: 'reminder',
-          title: s.length > 50 ? s.substring(0, 50) + '…' : s,
+          title: cleanTaskTitle(s),
           subject_code: matchedSub,
           reminder_type: remType,
           due_date: dueDate,
@@ -324,7 +446,7 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
         const intDateMatch = s.match(/(\d{1,2}\s+[A-Za-z]{3}(?:,?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/i);
         if (intDateMatch) interviewDate = intDateMatch[1];
 
-        parsedActions.push({
+        rawCandidates.push({
           type: 'intern',
           company: matchedCompany,
           myStatus,
@@ -334,6 +456,10 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
       }
     }
   }
+
+  // 3. AI Decider & Refiner Phase: Filters out unwanted gibberish and refines parameters
+  const parsedActions = await decideAndRefineActions(env, emailText, rawCandidates);
+
 
   const executionResults: string[] = [];
 

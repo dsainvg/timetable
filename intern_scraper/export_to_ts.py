@@ -66,8 +66,11 @@ def convert():
         roles = json.load(f)
 
     # Read existing internData.ts to preserve user modified myStatus/notes/interviewDate and stable IDs
-    existing_map = {}
-    key_to_id_map = {}
+    existing_items = []
+    existing_by_com_jnf = {}
+    existing_by_name_jnf = {}
+    used_ids = set()
+
     if os.path.exists(TARGET_TS):
         with open(TARGET_TS, encoding="utf-8") as f:
             ts_content = f.read()
@@ -80,19 +83,35 @@ def convert():
                 existing_items = json.loads(m.group(1))
 
             for item in existing_items:
-                role_id = item['id']
-                existing_map[role_id] = item
+                r_id = item['id']
+                used_ids.add(r_id)
                 c_name = item.get('company', '')
                 j_id = str(item.get('jnfId') or '')
                 c_id = str(item.get('comId') or '')
-                pos = item.get('positionNote') or ''
 
                 if c_id and j_id:
-                    key_to_id_map[("com_jnf_id", c_id, j_id)] = role_id
+                    existing_by_com_jnf[(c_id, j_id)] = item
                 if c_name and j_id:
-                    key_to_id_map[("name_jnf", slugify(c_name), j_id)] = role_id
+                    existing_by_name_jnf[(slugify(c_name), j_id)] = item
 
+    max_numeric_id = 0
+    for r_id in used_ids:
+        if r_id.startswith('i') and r_id[1:].isdigit():
+            max_numeric_id = max(max_numeric_id, int(r_id[1:]))
+
+    def get_next_id():
+        nonlocal max_numeric_id
+        max_numeric_id += 1
+        new_id = f"i{max_numeric_id}"
+        while new_id in used_ids:
+            max_numeric_id += 1
+            new_id = f"i{max_numeric_id}"
+        used_ids.add(new_id)
+        return new_id
+
+    matched_existing_ids = set()
     formatted_roles = []
+
     for idx, r in enumerate(roles, 1):
         company_name = r.get("company_name", "Unknown")
         com_id = str(r.get("com_id") or "")
@@ -100,18 +119,19 @@ def convert():
         jnf_details = r.get("jnf_details", {})
         pos_note = jnf_details.get("form_type") or r.get("apply_acceptance") or ""
 
-        # Multi-key deterministic ID resolution (Com ID + JNF ID takes precedence)
-        role_id = None
-        if com_id and jnf_id and ("com_jnf_id", com_id, jnf_id) in key_to_id_map:
-            role_id = key_to_id_map[("com_jnf_id", com_id, jnf_id)]
-        elif company_name and jnf_id and ("name_jnf", slugify(company_name), jnf_id) in key_to_id_map:
-            role_id = key_to_id_map[("name_jnf", slugify(company_name), jnf_id)]
+        existing = None
+        if com_id and jnf_id and (com_id, jnf_id) in existing_by_com_jnf:
+            existing = existing_by_com_jnf[(com_id, jnf_id)]
+        elif company_name and jnf_id and (slugify(company_name), jnf_id) in existing_by_name_jnf:
+            existing = existing_by_name_jnf[(slugify(company_name), jnf_id)]
 
-        if not role_id:
-            role_id = f"i{idx}"
+        if existing:
+            role_id = existing['id']
+            matched_existing_ids.add(role_id)
+        else:
+            role_id = get_next_id()
 
-        existing = existing_map.get(role_id, {})
-        existing_status = existing.get("myStatus")
+        existing_status = existing.get("myStatus") if existing else None
         if r.get("application_status") == "Y":
             if not existing_status or existing_status == "not_applied":
                 my_status = "applied"
@@ -128,11 +148,11 @@ def convert():
             "applyStatus": r.get("application_status") or "Apply",
             "resumeStart": r.get("resume_upload_start") or "",
             "resumeEnd": r.get("resume_upload_end") or "",
-            "interviewDate": existing.get("interviewDate") or r.get("interview_selection_date") or "",
+            "interviewDate": (existing.get("interviewDate") if existing else "") or r.get("interview_selection_date") or "",
             "positionNote": pos_note,
-            "sortingDone": existing.get("sortingDone", False),
+            "sortingDone": existing.get("sortingDone", False) if existing else False,
             "myStatus": my_status,
-            "notes": existing.get("notes", ""),
+            "notes": existing.get("notes", "") if existing else "",
             "jnfUrl": r.get("jnf_url", ""),
             "jnfId": jnf_id,
             "comId": com_id,
@@ -150,6 +170,11 @@ def convert():
             "applicationStatus": r.get("application_status") or ""
         }
         formatted_roles.append(entry)
+
+    for old_item in existing_items:
+        if old_item['id'] not in matched_existing_ids:
+            formatted_roles.append(old_item)
+            matched_existing_ids.add(old_item['id'])
 
     ts_template = f"""export type InternStatus = 'not_applied' | 'applied' | 'oa_bad' | 'oa_good' | 'shortlisted' | 'interview_good' | 'offered' | 'rejected';
 
