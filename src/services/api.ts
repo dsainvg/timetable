@@ -488,3 +488,100 @@ export async function deleteAttendanceRecord(id: string): Promise<AttendanceReco
   return updated;
 }
 
+export async function triggerEmailWorker(payload: {
+  triggerType: 'daily' | 'sunday' | 'reminders' | 'custom';
+  recipient?: string;
+  subject?: string;
+  message?: string;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/trigger-email', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    console.error('Trigger Email API call error:', err);
+    return {
+      success: false,
+      message: err.message || 'Failed to connect to email trigger worker.',
+    };
+  }
+}
+
+export interface EmailLog {
+  id: string;
+  sender: string;
+  subject: string;
+  body: string;
+  action_count: number;
+  execution_summary: string[];
+  created_at: string;
+}
+
+const LOCAL_STORAGE_KEY_EMAIL_LOGS = 'iitkgp_timetable_email_logs_v1';
+
+export async function getEmailLogs(): Promise<EmailLog[]> {
+  if (!checkAuthSession().isAuthenticated) return [];
+  try {
+    const res = await fetch('/api/email-logs', { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        localStorage.setItem(LOCAL_STORAGE_KEY_EMAIL_LOGS, JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch {
+    // API fallback
+  }
+
+  const raw = localStorage.getItem(LOCAL_STORAGE_KEY_EMAIL_LOGS);
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch {}
+  }
+  return [];
+}
+
+export async function parseAndExecuteEmailResponse(emailText: string, options?: { sender?: string; subject?: string }): Promise<{
+  success: boolean;
+  actionCount: number;
+  parsedActions: any[];
+  executed: boolean;
+  executionResults: string[];
+  message?: string;
+}> {
+  try {
+    const res = await fetch('/api/parse-email-actions', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        emailText,
+        autoExecute: true,
+        sender: options?.sender || 'me@timio.dpdns.org',
+        subject: options?.subject || 'Inbound Email Response / Trigger',
+      }),
+    });
+    const data = await res.json();
+    touchLocalLastEdit();
+    return data;
+  } catch (err: any) {
+    console.error('Parse Email Response API call error:', err);
+    return {
+      success: false,
+      actionCount: 0,
+      parsedActions: [],
+      executed: false,
+      executionResults: [],
+      message: err.message || 'Failed to parse email response via worker.',
+    };
+  }
+}
+
+
+
+

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Briefcase,
   CheckSquare,
+  MailCheck,
 } from 'lucide-react';
 import { STUDENT_INFO } from './data/timetableData';
 import { TodaySummary } from './components/TodaySummary';
@@ -16,6 +17,7 @@ import { WeeklyTimetable } from './components/WeeklyTimetable';
 import { RemindersManager } from './components/RemindersManager';
 import { InternTracker } from './components/InternTracker';
 import { AttendanceTracker } from './components/AttendanceTracker';
+import { EmailLogsManager } from './components/EmailLogsManager';
 import { AuthModal } from './components/AuthModal';
 import { EmailSettingsModal } from './components/EmailSettingsModal';
 import {
@@ -36,7 +38,7 @@ import {
   logoutAuthSession,
 } from './services/api';
 
-type TabId = 'today' | 'timetable' | 'reminders' | 'interns' | 'attendance';
+type TabId = 'today' | 'timetable' | 'reminders' | 'interns' | 'attendance' | 'emaillogs';
 
 const LOCAL_STORAGE_KEY_TAB = 'iitkgp_timetable_active_tab_v1';
 
@@ -46,7 +48,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTabState] = useState<TabId>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TAB) as TabId;
-      if (saved && ['today', 'timetable', 'reminders', 'interns', 'attendance'].includes(saved)) {
+      if (saved && ['today', 'timetable', 'reminders', 'interns', 'attendance', 'emaillogs'].includes(saved)) {
         return saved;
       }
     } catch (e) {}
@@ -214,6 +216,7 @@ export const App: React.FC = () => {
       badge: reminders.filter(r => r.status === 'pending').length },
     { id: 'interns',    label: 'Internships',             mobileLabel: 'Interns',    icon: Briefcase },
     { id: 'attendance', label: 'Attendance & Bunks',      mobileLabel: 'Attendance', icon: CheckSquare },
+    { id: 'emaillogs',  label: 'Email Trigger Logs',      mobileLabel: 'Email Logs', icon: MailCheck },
   ];
 
   return (
@@ -419,6 +422,7 @@ export const App: React.FC = () => {
             onDeleteRecord={handleDeleteAttendance}
           />
         )}
+        {activeTab === 'emaillogs' && <EmailLogsManager onRefreshData={loadData} />}
       </main>
 
       {/* ─── Mobile Bottom Nav ─── */}

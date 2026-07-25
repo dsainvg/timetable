@@ -5,6 +5,7 @@ import { SCHEDULE_GRID, COURSES } from './data/timetableData';
 
 export interface Env {
   DB?: any;
+  AI?: any;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
   APP_PASSWORD?: string;
   SMTP_USER?: string;
@@ -382,6 +383,17 @@ async function ensureTables(db: any) {
           positions TEXT,
           tentative_start TEXT,
           application_status TEXT DEFAULT ''
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS email_logs (
+          id TEXT PRIMARY KEY,
+          sender TEXT DEFAULT 'me@timio.dpdns.org',
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          action_count INTEGER DEFAULT 0,
+          execution_summary TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `),
     ]);
@@ -1246,6 +1258,484 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
         }
 
         return json(dispatchResult, dispatchResult.success ? 200 : 400);
+      }
+
+      // ─── 5. EMAIL TRIGGER WORKER API ──────────────────────────────
+      if (path === '/api/trigger-email' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as {
+          triggerType?: 'daily' | 'sunday' | 'reminders' | 'custom';
+          recipient?: string;
+          subject?: string;
+          message?: string;
+        };
+
+        const targetRecipient = body.recipient || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
+        const triggerType = body.triggerType || 'daily';
+
+        try {
+          if (triggerType === 'daily') {
+            await sendDailyMorningSummary(env, targetRecipient);
+            return json({ success: true, message: `Daily 24-hour summary email worker triggered successfully for ${targetRecipient}` });
+          } else if (triggerType === 'sunday') {
+            await sendSundayWeeklySummary(env, targetRecipient);
+            return json({ success: true, message: `Sunday weekly summary email worker triggered successfully for ${targetRecipient}` });
+          } else if (triggerType === 'reminders') {
+            await processHourlyReminders(env, targetRecipient);
+            return json({ success: true, message: `Hourly reminder scan worker triggered successfully for ${targetRecipient}` });
+          } else if (triggerType === 'custom') {
+            const result = await dispatchEmail(env, {
+              recipient: targetRecipient,
+              subject: body.subject || '⚡ Worker Trigger Notification',
+              text: body.message || 'Manual worker email trigger executed.',
+            });
+            return json(result, result.success ? 200 : 400);
+          }
+          return json({ success: false, message: 'Invalid trigger type. Supported types: daily, sunday, reminders, custom.' }, 400);
+        } catch (e: any) {
+          console.error('[EMAIL TRIGGER WORKER ERROR]', e);
+          return json({ success: false, error: e.message || 'Failed to execute email trigger worker' }, 500);
+        }
+      }
+
+      // ─── 6. CLOUDFLARE WORKERS AI ASSISTANT BINDING API ─────────────
+      if (path === '/api/ai-assistant' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as {
+          prompt?: string;
+          systemPrompt?: string;
+          model?: string;
+        };
+
+        const userPrompt = body.prompt || 'Summarize my timetable schedule for today.';
+        const systemPrompt = body.systemPrompt || 'You are an intelligent academic assistant for an IIT Kharagpur CSE student. Provide concise, helpful advice regarding coursework, attendance, timetable scheduling, and internship preparation.';
+        const targetModel = body.model || '@cf/meta/llama-3-8b-instruct';
+
+        if (env.AI) {
+          try {
+            const aiResponse = await env.AI.run(targetModel, {
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+            });
+            return json({
+              success: true,
+              model: targetModel,
+              response: aiResponse.response || aiResponse,
+            });
+          } catch (e: any) {
+            console.error('[WORKERS AI RUN ERROR]', e);
+            return json({ success: false, error: e.message || 'Workers AI execution error.' }, 500);
+          }
+        } else {
+          return json(
+            {
+              success: false,
+              message:
+                'Cloudflare Workers AI binding is configured in wrangler.json ("ai": { "binding": "AI" }). To enable live Workers AI model responses, deploy the worker using "npx wrangler deploy".',
+              setupRequired: true,
+            },
+            503
+          );
+        }
+      }
+
+      // ─── 7. MULTI-ACTION EMAIL RESPONSE PARSER & DISPATCHER API ──────
+      if (path === '/api/parse-email-actions' && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as {
+          emailText?: string;
+          autoExecute?: boolean;
+        };
+
+        const emailText = (body.emailText || '').trim();
+        if (!emailText) {
+          return json({ success: false, message: 'emailText is required.' }, 400);
+        }
+
+        const autoExecute = body.autoExecute !== false; // Default true
+        let parsedActions: any[] = [];
+
+        // 0. CDC Schedule Bulletin Detection & Parsing
+        const isCDCSchedule = /CDC|Internship schedule|Google Groups|CDC ERP Bot/i.test(emailText) || /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
+        if (isCDCSchedule) {
+          let scheduleDate = getISTDate().dateString;
+          // Extract date DD-MM-YYYY or DD Month
+          const dMatch1 = emailText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+          if (dMatch1) {
+            scheduleDate = `${dMatch1[3]}-${dMatch1[2]}-${dMatch1[1]}`;
+          } else {
+            const dMatch2 = emailText.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
+            if (dMatch2) {
+              const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+              const mStr = monthMap[dMatch2[2].toLowerCase()] || '07';
+              const dNum = parseInt(dMatch2[1], 10);
+              const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
+              scheduleDate = `2026-${mStr}-${dStr}`;
+            }
+          }
+
+          const cdcItemRegex = /(?:^|\n)\s*(\d+)\.\s*\[([^\]]+)\]\s*([^(]+)\s*\(([^)]+)\)([\s\S]*?)(?=(?:\n\s*\d+\.\s*\[|$))/gi;
+          let match;
+          while ((match = cdcItemRegex.exec(emailText)) !== null) {
+            const eventType = match[2].trim();
+            const companyName = match[3].trim();
+            const timeRange = match[4].trim();
+            const restInfo = match[5].trim();
+
+            const modeMatch = restInfo.match(/Mode\s*:\s*([^\n]+)/i);
+            const modeInfo = modeMatch ? modeMatch[1].trim() : 'Online/Offline';
+
+            const pocMatch = restInfo.match(/POC\s*:\s*([\s\S]*?)(?=\n\s*(?:Note|CDC|$|\d+\.))/i);
+            const pocInfo = pocMatch ? pocMatch[1].replace(/\n+/g, ' ').trim() : 'CDC Coordinator';
+
+            // Convert start time to 24h HH:MM
+            let dueTime = '10:00';
+            const tMatch = timeRange.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            if (tMatch) {
+              let h = parseInt(tMatch[1], 10);
+              const m = tMatch[2];
+              const period = tMatch[3].toUpperCase();
+              if (period === 'PM' && h < 12) h += 12;
+              if (period === 'AM' && h === 12) h = 0;
+              dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+            }
+
+            parsedActions.push({
+              type: 'cdc_schedule',
+              company: companyName,
+              eventType: eventType.toUpperCase(),
+              date: scheduleDate,
+              timeRange,
+              dueTime,
+              mode: modeInfo,
+              poc: pocInfo,
+              description: `[CDC ${eventType.toUpperCase()}] ${companyName} (${timeRange}). Mode: ${modeInfo}. POC: ${pocInfo}`,
+            });
+          }
+        }
+
+        // 1. Attempt Cloudflare Workers AI parsing if available and not CDC schedule
+        if (parsedActions.length === 0 && env.AI) {
+          try {
+            const systemPrompt = `You are a strict JSON extraction assistant for an IIT Kharagpur CSE student app.
+Extract ALL distinct student actions mentioned in the input text into a JSON array of objects.
+Actions can be of 3 types:
+
+1. Attendance Log:
+{"type": "attendance", "subject_code": "CS31007", "date": "YYYY-MM-DD", "status": "attended"|"missed"|"cancelled", "note": "optional note"}
+Subject codes mapping:
+CS61064 (HPPC), CS39001 (Comp Org Lab), CS31005 (Algo 2), CS31007 (Comp Org), AI60213 (FLLM), CS31003 (Compilers), CS39003 (Compilers Lab).
+Dates: if "today" use today's date ${getISTDate().dateString}. If "yesterday", subtract 1 day.
+
+2. Class Reminder:
+{"type": "reminder", "title": "Assignment 1", "subject_code": "CS31003", "reminder_type": "assignment"|"class"|"exam"|"project"|"other", "due_date": "YYYY-MM-DD", "due_time": "HH:MM", "priority": "high"|"medium"|"low", "description": "text"}
+
+3. Intern Company Update:
+{"type": "intern", "company": "Company Name", "myStatus": "applied"|"oa_good"|"shortlisted"|"interview_good"|"offered"|"rejected", "interviewDate": "DD Mon, HH:MM AM/PM", "notes": "text"}
+
+OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
+
+            const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: emailText },
+              ],
+            });
+
+            const rawContent = (aiRes.response || '').trim();
+            const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              parsedActions = JSON.parse(jsonMatch[0]);
+            }
+          } catch (aiErr) {
+            console.error('[AI PARSE ERROR, FALLING BACK TO REGEX ENGINE]', aiErr);
+          }
+        }
+
+        // 2. Smart Heuristic & Regex Fallback Parser Engine
+        if (!Array.isArray(parsedActions) || parsedActions.length === 0) {
+          parsedActions = [];
+          const todayStr = getISTDate().dateString;
+          const sentences = emailText.split(/(?:\.|\n|;|\band\b)+/gi).map((s) => s.trim()).filter(Boolean);
+
+          const subjectMap: Record<string, string> = {
+            hppc: 'CS61064', cs61064: 'CS61064',
+            'comp org lab': 'CS39001', cs39001: 'CS39001',
+            'algo 2': 'CS31005', algo: 'CS31005', cs31005: 'CS31005',
+            'comp org': 'CS31007', cs31007: 'CS31007', architecture: 'CS31007',
+            fllm: 'AI60213', llm: 'AI60213', ai60213: 'AI60213',
+            compiler: 'CS31003', compilers: 'CS31003', cs31003: 'CS31003',
+            'compiler lab': 'CS39003', 'compilers lab': 'CS39003', cs39003: 'CS39003',
+          };
+
+          for (const s of sentences) {
+            const lower = s.toLowerCase();
+
+            // A. ATTENDANCE LOG CHECK
+            if (/(attended|present|missed|bunked|absent|cancelled)/i.test(lower)) {
+              let matchedSub = 'CS31007';
+              for (const [key, code] of Object.entries(subjectMap)) {
+                if (lower.includes(key)) {
+                  matchedSub = code;
+                  break;
+                }
+              }
+
+              let status: 'attended' | 'missed' | 'cancelled' = 'attended';
+              if (/(missed|bunked|absent)/i.test(lower)) status = 'missed';
+              else if (/cancelled/i.test(lower)) status = 'cancelled';
+
+              let logDate = todayStr;
+              if (/yesterday/i.test(lower)) {
+                const yDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                logDate = getISTDate(yDate).dateString;
+              }
+
+              parsedActions.push({
+                type: 'attendance',
+                subject_code: matchedSub,
+                date: logDate,
+                status,
+                note: `Parsed from email: "${s}"`,
+              });
+              continue;
+            }
+
+            // B. REMINDER CHECK
+            if (/(remind|due|assignment|exam|test|prep|project)/i.test(lower)) {
+              let matchedSub = 'GENERAL';
+              for (const [key, code] of Object.entries(subjectMap)) {
+                if (lower.includes(key)) {
+                  matchedSub = code;
+                  break;
+                }
+              }
+
+              let remType: 'assignment' | 'class' | 'exam' | 'project' | 'other' = 'assignment';
+              if (/exam|test|midsem|endsem/i.test(lower)) remType = 'exam';
+              else if (/project/i.test(lower)) remType = 'project';
+
+              let dueDate = todayStr;
+              const dateMatch = s.match(/(\d{4}-\d{2}-\d{2})/);
+              if (dateMatch) {
+                dueDate = dateMatch[1];
+              } else if (/tomorrow/i.test(lower)) {
+                const tmrw = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                dueDate = getISTDate(tmrw).dateString;
+              }
+
+              let dueTime = '23:59';
+              const timeMatch = s.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
+              if (timeMatch) dueTime = timeMatch[1];
+
+              parsedActions.push({
+                type: 'reminder',
+                title: s.length > 50 ? s.substring(0, 50) + '…' : s,
+                subject_code: matchedSub,
+                reminder_type: remType,
+                due_date: dueDate,
+                due_time: dueTime,
+                priority: /high|urgent|important/i.test(lower) ? 'high' : 'medium',
+                description: s,
+              });
+              continue;
+            }
+
+            // C. INTERN UPDATE CHECK
+            if (/(interview|applied|shortlist|offer|rejected|company|intern)/i.test(lower)) {
+              const knownCompanies = ['Google', 'Amazon', 'Atlassian', 'AlphaGrep', 'American Express', 'Bain', 'BCG', 'Capital One', 'Cisco', 'Goldman Sachs', 'Microsoft', 'Uber'];
+              let matchedCompany = 'Target Company';
+              for (const c of knownCompanies) {
+                if (lower.includes(c.toLowerCase())) {
+                  matchedCompany = c;
+                  break;
+                }
+              }
+
+              let myStatus = 'applied';
+              if (/interview/i.test(lower)) myStatus = 'interview_good';
+              else if (/shortlist/i.test(lower)) myStatus = 'shortlisted';
+              else if (/offer/i.test(lower)) myStatus = 'offered';
+              else if (/rejected/i.test(lower)) myStatus = 'rejected';
+
+              let interviewDate = '';
+              const intDateMatch = s.match(/(\d{1,2}\s+[A-Za-z]{3}(?:,?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/i);
+              if (intDateMatch) interviewDate = intDateMatch[1];
+
+              parsedActions.push({
+                type: 'intern',
+                company: matchedCompany,
+                myStatus,
+                interviewDate,
+                notes: s,
+              });
+            }
+          }
+        }
+
+        const executionResults: string[] = [];
+
+        // 3. Auto-Execute extracted actions in database if enabled
+        if (autoExecute && env.DB && parsedActions.length > 0) {
+          for (const act of parsedActions) {
+            try {
+              if (act.type === 'cdc_schedule') {
+                const companyName = act.company || 'Company';
+                const { results } = await env.DB.prepare(
+                  'SELECT id, company, my_status, application_status FROM intern_roles WHERE LOWER(company) LIKE ?'
+                ).bind(`%${companyName.toLowerCase()}%`).all();
+
+                const roleId = (results && results.length > 0) ? results[0].id : companyName.replace(/\W+/g, '');
+                const remId = `rem-cdc-${roleId}-${Date.now()}`;
+
+                await env.DB.prepare(`
+                  INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                    title=excluded.title,
+                    due_date=excluded.due_date,
+                    due_time=excluded.due_time,
+                    description=excluded.description,
+                    status='pending'
+                `).bind(
+                  remId,
+                  `[CDC ${act.eventType}] ${companyName}`,
+                  'INTERNSHIP',
+                  'exam',
+                  act.date,
+                  act.dueTime,
+                  'high',
+                  'pending',
+                  1,
+                  act.description
+                ).run();
+
+                executionResults.push(`📌 Created CDC Reminder: [${act.eventType}] ${companyName} on ${act.date} at ${act.dueTime} (${act.mode})`);
+              } else if (act.type === 'attendance') {
+                const id = 'att-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+                await env.DB.prepare(`
+                  INSERT INTO attendance_records (id, subject_code, date, status, note)
+                  VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                    subject_code=excluded.subject_code,
+                    date=excluded.date,
+                    status=excluded.status,
+                    note=excluded.note
+                `).bind(id, act.subject_code, act.date, act.status, act.note || '').run();
+
+                executionResults.push(`🟢 Logged Attendance: [${getSubjectDisplayName(act.subject_code)}] ${act.status.toUpperCase()} on ${act.date}`);
+              } else if (act.type === 'reminder') {
+                const id = 'rem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+                await env.DB.prepare(`
+                  INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  id,
+                  act.title || 'Parsed Task',
+                  act.subject_code || 'GENERAL',
+                  act.reminder_type || 'assignment',
+                  act.due_date || getISTDate().dateString,
+                  act.due_time || '23:59',
+                  act.priority || 'medium',
+                  'pending',
+                  1,
+                  act.description || ''
+                ).run();
+
+                executionResults.push(`📌 Created Reminder: "${act.title}" (${getSubjectDisplayName(act.subject_code)}) Due ${act.due_date}`);
+              } else if (act.type === 'intern') {
+                const companyName = act.company || 'Unknown Company';
+                const { results } = await env.DB.prepare(
+                  'SELECT id FROM intern_roles WHERE LOWER(company) LIKE ?'
+                ).bind(`%${companyName.toLowerCase()}%`).all();
+
+                if (results && results.length > 0) {
+                  const roleId = results[0].id;
+                  await env.DB.prepare(`
+                    UPDATE intern_roles SET
+                      my_status = COALESCE(?, my_status),
+                      interview_date = CASE WHEN ? <> '' THEN ? ELSE interview_date END,
+                      notes = CASE WHEN ? <> '' THEN ? ELSE notes END
+                    WHERE id = ?
+                  `).bind(act.myStatus || null, act.interviewDate || '', act.interviewDate || '', act.notes || '', act.notes || '', roleId).run();
+
+                  if (act.interviewDate) {
+                    const remId = 'rem-interview-' + roleId;
+                    await env.DB.prepare(`
+                      INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      ON CONFLICT(id) DO UPDATE SET
+                        title=excluded.title,
+                        status='pending'
+                    `).bind(remId, `Interview: ${companyName}`, 'INTERNSHIP', 'exam', getISTDate().dateString, '10:00', 'high', 'pending', 1, `Scheduled via email parser`).run();
+                  }
+
+                  executionResults.push(`💼 Updated Intern Role: ${companyName} -> Status: ${act.myStatus || 'Updated'}`);
+                } else {
+                  executionResults.push(`⚠️ Company "${companyName}" not found in Intern Database.`);
+                }
+              }
+            } catch (execErr: any) {
+              console.error('[ACTION EXECUTION ERROR]', execErr);
+              executionResults.push(`❌ Failed to execute action (${act.type}): ${execErr.message}`);
+            }
+          }
+          await touchLastEdit(env.DB);
+        }
+
+        // 4. Record log entry into email_logs table
+        if (env.DB) {
+          try {
+            const emailLogId = 'elog-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+            const sender = (body as any).sender || env.DEFAULT_EMAIL || DEFAULT_RECIPIENT;
+            const subject = (body as any).subject || 'Inbound Email Response / Trigger';
+
+            await env.DB.prepare(`
+              INSERT INTO email_logs (id, sender, subject, body, action_count, execution_summary)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).bind(
+              emailLogId,
+              sender,
+              subject,
+              emailText,
+              parsedActions.length,
+              JSON.stringify(executionResults)
+            ).run();
+          } catch (logErr) {
+            console.error('[EMAIL LOG INSERT ERROR]', logErr);
+          }
+        }
+
+        return json({
+          success: true,
+          actionCount: parsedActions.length,
+          parsedActions,
+          executed: autoExecute,
+          executionResults,
+        });
+      }
+
+      // ─── 8. GET INBOUND EMAIL TRIGGER LOGS API ────────────────────────
+      if (path === '/api/email-logs' && request.method === 'GET') {
+        if (env.DB) {
+          try {
+            const { results } = await env.DB.prepare(
+              'SELECT * FROM email_logs ORDER BY created_at DESC'
+            ).all();
+            const parsedLogs = (results || []).map((row: any) => ({
+              id: row.id,
+              sender: row.sender,
+              subject: row.subject,
+              body: row.body,
+              action_count: Number(row.action_count || 0),
+              execution_summary: JSON.parse(row.execution_summary || '[]'),
+              created_at: row.created_at,
+            }));
+            return json(parsedLogs);
+          } catch (e) {
+            console.error('GET /api/email-logs D1 error:', e);
+          }
+        }
+        return json([]);
       }
 
       return json({ error: 'API Endpoint Not Found' }, 404);

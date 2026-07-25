@@ -10,7 +10,7 @@ import {
   Ban,
   Sparkles,
 } from 'lucide-react';
-import { COURSES, SCHEDULE_GRID } from '../data/timetableData';
+import { COURSES, SCHEDULE_GRID, getSubjectSessionHours, getWeeklyScheduledHours } from '../data/timetableData';
 import { AttendanceRecord, AttendanceStatus } from '../services/api';
 
 interface AttendanceTrackerProps {
@@ -51,38 +51,58 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   // Get all course codes in curriculum for stats overview
   const courseCodes = Object.keys(COURSES);
 
-  // Compute Per-Subject Stats (Simple Attended, Missed, Cancelled, Pct)
+  // Compute Per-Subject Stats based on Timetable Hours
   const subjectStats = courseCodes.map((subCode) => {
     const subLogs = records.filter((r) => r.subject_code === subCode);
-    const attended = subLogs.filter((r) => r.status === 'attended').length;
-    const missed = subLogs.filter((r) => r.status === 'missed').length;
-    const cancelled = subLogs.filter((r) => r.status === 'cancelled').length;
+    const sessionHours = getSubjectSessionHours(subCode);
+    const weeklyHours = getWeeklyScheduledHours(subCode);
 
-    const totalHeld = attended + missed; // Cancelled does not count against held lectures
-    const pct = totalHeld > 0 ? Math.round((attended / totalHeld) * 100) : 100;
+    const attendedCount = subLogs.filter((r) => r.status === 'attended').length;
+    const missedCount = subLogs.filter((r) => r.status === 'missed').length;
+    const cancelledCount = subLogs.filter((r) => r.status === 'cancelled').length;
+
+    const attendedHours = attendedCount * sessionHours;
+    const missedHours = missedCount * sessionHours;
+    const cancelledHours = cancelledCount * sessionHours;
+
+    const totalHeldHours = attendedHours + missedHours; // Cancelled hours do not count against held lectures
+    const pct = totalHeldHours > 0 ? Math.round((attendedHours / totalHeldHours) * 100) : 100;
 
     return {
       subCode,
       course: COURSES[subCode],
-      attended,
-      missed,
-      cancelled,
-      totalHeld,
+      sessionHours,
+      weeklyHours,
+      attendedCount,
+      missedCount,
+      cancelledCount,
+      attendedHours,
+      missedHours,
+      cancelledHours,
+      totalHeldHours,
       pct,
       subLogs,
     };
   });
 
-  // Overall Stats
-  const totalAttended = records.filter((r) => r.status === 'attended').length;
-  const totalMissed = records.filter((r) => r.status === 'missed').length;
-  const totalCancelled = records.filter((r) => r.status === 'cancelled').length;
-  const totalHeldSemester = totalAttended + totalMissed;
-  const overallPct = totalHeldSemester > 0 ? Math.round((totalAttended / totalHeldSemester) * 100) : 100;
+  // Overall Hours Stats
+  let totalAttendedHours = 0;
+  let totalMissedHours = 0;
+  let totalCancelledHours = 0;
 
-  // Most Missed Class
-  const sortedByMissed = [...subjectStats].sort((a, b) => b.missed - a.missed);
-  const mostMissed = sortedByMissed[0] && sortedByMissed[0].missed > 0 ? sortedByMissed[0] : null;
+  records.forEach((r) => {
+    const h = getSubjectSessionHours(r.subject_code);
+    if (r.status === 'attended') totalAttendedHours += h;
+    else if (r.status === 'missed') totalMissedHours += h;
+    else if (r.status === 'cancelled') totalCancelledHours += h;
+  });
+
+  const totalHeldSemesterHours = totalAttendedHours + totalMissedHours;
+  const overallPct = totalHeldSemesterHours > 0 ? Math.round((totalAttendedHours / totalHeldSemesterHours) * 100) : 100;
+
+  // Most Missed Class (by hours)
+  const sortedByMissed = [...subjectStats].sort((a, b) => b.missedHours - a.missedHours);
+  const mostMissed = sortedByMissed[0] && sortedByMissed[0].missedHours > 0 ? sortedByMissed[0] : null;
 
   // Quick log helper
   const handleQuickLog = (subjectCode: string, status: AttendanceStatus) => {
@@ -269,7 +289,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
       {/* ─── Course-wise Attendance Cards ─── */}
       <div>
         <h3 style={{ fontSize: 15, fontWeight: 800, color: '#f8fafc', marginBottom: 14 }}>
-          Course-wise Attendance Breakdown
+          Course-wise Attendance Breakdown (Timetable Hours)
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
@@ -288,7 +308,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                     <div style={{ fontSize: 15, fontWeight: 800, color: st.course?.color || '#818cf8' }}>
                       {st.course?.shortName || st.subCode}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{st.course?.name}</div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>{st.course?.name} ({st.sessionHours}h/session)</div>
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
@@ -296,7 +316,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                       {st.pct}%
                     </div>
                     <div style={{ fontSize: 10, color: '#64748b' }}>
-                      {st.attended}/{st.totalHeld} attended
+                      {st.attendedHours}/{st.totalHeldHours} hrs ({st.attendedCount} classes)
                     </div>
                   </div>
                 </div>
@@ -311,9 +331,9 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
 
                 {/* Stats breakdown */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8', borderTop: '1px solid rgba(30,41,59,0.6)', paddingTop: 10 }}>
-                  <span>🟢 Attended: <strong>{st.attended}</strong></span>
-                  <span>🔴 Missed: <strong>{st.missed}</strong></span>
-                  <span>🟡 Cancelled: <strong>{st.cancelled}</strong></span>
+                  <span>🟢 Attended: <strong>{st.attendedHours} hrs</strong> ({st.attendedCount})</span>
+                  <span>🔴 Missed: <strong>{st.missedHours} hrs</strong> ({st.missedCount})</span>
+                  <span>🟡 Cancelled: <strong>{st.cancelledHours} hrs</strong> ({st.cancelledCount})</span>
                 </div>
               </div>
             );
@@ -347,7 +367,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                   {mostMissed.course?.name || mostMissed.subCode}
                 </div>
                 <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 2 }}>
-                  <strong>{mostMissed.missed}</strong> lectures missed
+                  <strong>{mostMissed.missedHours} hrs</strong> missed ({mostMissed.missedCount} lectures)
                 </div>
               </>
             ) : (
@@ -376,7 +396,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
               Official Cancelled Classes
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#f8fafc' }}>
-              {totalCancelled} Professor Cancellations
+              {totalCancelledHours} Hours ({records.filter(r => r.status === 'cancelled').length} Cancellations)
             </div>
             <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 2 }}>
               Cancelled lectures kept in separate log.
@@ -402,10 +422,10 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
               Overall Semester Attendance
             </div>
             <div style={{ fontSize: 18, fontWeight: 900, color: '#4ade80', fontFamily: 'monospace' }}>
-              {overallPct}% ({totalAttended}/{totalHeldSemester} held)
+              {overallPct}% ({totalAttendedHours}/{totalHeldSemesterHours} hrs held)
             </div>
             <div style={{ fontSize: 12, color: '#c7d2fe', marginTop: 2 }}>
-              Total logs: {records.length} entries
+              Total logs: {records.length} entries ({totalAttendedHours + totalMissedHours + totalCancelledHours} total hrs)
             </div>
           </div>
         </div>
@@ -471,6 +491,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                 <tr style={{ borderBottom: '1px solid rgba(51,65,85,0.8)', color: '#64748b' }}>
                   <th style={{ padding: '10px 12px', fontWeight: 700 }}>Date</th>
                   <th style={{ padding: '10px 12px', fontWeight: 700 }}>Course</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 700 }}>Hours</th>
                   <th style={{ padding: '10px 12px', fontWeight: 700 }}>Status</th>
                   <th style={{ padding: '10px 12px', fontWeight: 700 }}>Notes</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions</th>
@@ -479,6 +500,7 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
               <tbody>
                 {filteredRecords.map((r) => {
                   const course = COURSES[r.subject_code];
+                  const sessionHrs = getSubjectSessionHours(r.subject_code);
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid rgba(30,41,59,0.6)' }}>
                       <td style={{ padding: '12px', color: '#f8fafc', fontWeight: 600, fontFamily: 'monospace' }}>
@@ -490,6 +512,10 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
                           [{course?.shortName || r.subject_code}]
                         </span>{' '}
                         <span style={{ color: '#94a3b8', fontSize: 12 }}>{course?.name}</span>
+                      </td>
+
+                      <td style={{ padding: '12px', color: '#a5b4fc', fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
+                        {sessionHrs} {sessionHrs === 1 ? 'hr' : 'hrs'}
                       </td>
 
                       <td style={{ padding: '12px' }}>

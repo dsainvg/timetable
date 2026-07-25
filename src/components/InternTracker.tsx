@@ -419,11 +419,6 @@ export const InternTracker: React.FC = () => {
           transition: 'background 0.15s',
         }}
       >
-        {/* # */}
-        <td style={{ padding: '10px 12px', color: '#334155', fontSize: 11, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-          {intern.id.replace('i', '')}
-        </td>
-
         {/* Company */}
         <td style={{ padding: '10px 14px', minWidth: 180 }}>
           <div
@@ -954,7 +949,6 @@ export const InternTracker: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>
                 <tr>
-                  <SortTh k="company">#</SortTh>
                   <SortTh k="company">Company</SortTh>
                   <SortTh k="ctc">Tier</SortTh>
                   <SortTh k="ctc">CTC</SortTh>

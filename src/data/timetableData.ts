@@ -370,3 +370,23 @@ export const SCHEDULE_GRID: ClassSlot[] = [
     defaultRoom: 'NC231',
   },
 ];
+
+export function getSubjectSessionHours(subjectCode: string): number {
+  const slot = SCHEDULE_GRID.find((s) => s.subjectCode === subjectCode);
+  if (slot && slot.labSpan) {
+    return slot.labSpan;
+  }
+  const course = COURSES[subjectCode];
+  if (course && course.ltp) {
+    const parts = course.ltp.split('-').map(Number);
+    if (parts[2] > 0 && parts[0] === 0) return parts[2];
+  }
+  return 1;
+}
+
+export function getWeeklyScheduledHours(subjectCode: string): number {
+  return SCHEDULE_GRID.filter((s) => s.subjectCode === subjectCode).reduce((acc, slot) => {
+    return acc + (slot.labSpan || 1);
+  }, 0);
+}
+

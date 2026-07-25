@@ -77,3 +77,15 @@ CREATE TABLE IF NOT EXISTS intern_roles (
   application_status TEXT DEFAULT '', -- Y or empty
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Table for tracking received inbound emails / trigger responses & executed actions
+CREATE TABLE IF NOT EXISTS email_logs (
+  id TEXT PRIMARY KEY,
+  sender TEXT DEFAULT 'me@timio.dpdns.org',
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  action_count INTEGER DEFAULT 0,
+  execution_summary TEXT NOT NULL, -- JSON string array of execution status logs
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
