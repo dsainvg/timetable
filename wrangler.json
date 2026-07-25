@@ -10,7 +10,8 @@
   "triggers": {
     "crons": [
       "30 * * * *"
-    ]
+    ],
+    "email": true
   },
   "d1_databases": [
     {
