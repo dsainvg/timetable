@@ -11,6 +11,43 @@ export interface Env {
   SMTP_USER?: string;
   SMTP_PASS?: string;
   DEFAULT_EMAIL?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
+}
+
+// ─── CLOUDFLARE WORKERS AI DISPATCHER (DIRECT NATIVE BINDING env.AI) ───
+async function callAIModel(env: Env, systemPrompt: string, userPrompt: string): Promise<string> {
+  if (!env.AI) {
+    console.error('[WORKERS AI BINDING MISSING] env.AI binding is required.');
+    return '';
+  }
+
+  const models = [
+    '@cf/zai-org/glm-4.7-flash',
+    '@cf/google/gemma-4-26b-a4b-it',
+    '@cf/qwen/qwen3-30b-a3b-fp8',
+    '@cf/meta/llama-3.1-8b-instruct',
+    '@cf/meta/llama-3-8b-instruct',
+    '@cf/qwen/qwen1.5-0.5b-chat',
+    '@cf/mistral/mistral-7b-instruct-v0.1',
+  ];
+
+  for (const model of models) {
+    try {
+      const aiRes = await env.AI.run(model, {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      });
+      const text = (aiRes.response || aiRes.text || (typeof aiRes === 'string' ? aiRes : '')).trim();
+      if (text) return text;
+    } catch (e: any) {
+      console.error(`[WORKERS AI BINDING ERROR for ${model}]`, e?.message || e);
+    }
+  }
+
+  return '';
 }
 
 const DEFAULT_RECIPIENT = 'me@timio.dpdns.org';
@@ -79,26 +116,159 @@ async function readStreamText(stream: any): Promise<string> {
   }
 }
 
-function extractPlainTextFromMIME(raw: string): string {
+function stripMimeAndHtml(raw: string): string {
   if (!raw) return '';
-  if (!raw.includes('Content-Type:') && !raw.includes('MIME-Version:')) {
-    return raw;
-  }
+  let text = raw;
 
-  const plainTextMatch = raw.match(/Content-Type:\s*text\/plain[\s\S]*?\n\n([\s\S]*?)(?=\n--|\nContent-Type:|$)/i);
-  if (plainTextMatch && plainTextMatch[1]) {
-    let body = plainTextMatch[1].trim();
-    if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(raw)) {
-      body = body.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // 1. Quoted-printable decode
+  text = text.replace(/=\r?\n/g, '');
+  text = text.replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+  // 2. Extract plain text part from MIME if multipart exists
+  if (text.includes('Content-Type: text/plain')) {
+    const parts = text.split(/Content-Type:\s*text\/plain/i);
+    if (parts.length > 1) {
+      let plainPart = parts[1];
+      const endBoundary = plainPart.search(/--_000_|--[A-Za-z0-9_-]+|Content-Type:/i);
+      if (endBoundary !== -1) {
+        plainPart = plainPart.substring(0, endBoundary);
+      }
+      text = plainPart;
     }
-    return body;
   }
 
-  const headerEnd = raw.indexOf('\r\n\r\n');
-  if (headerEnd !== -1) {
-    return raw.substring(headerEnd + 4).trim();
+  // 3. Strip CSS style and script blocks
+  text = text.replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  text = text.replace(/<script[\s\S]*?<\/script>/gi, ' ');
+
+  // 4. Strip all HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+
+  // 5. Decode HTML entities
+  text = text.replace(/&nbsp;/gi, ' ');
+  text = text.replace(/&amp;/gi, '&');
+  text = text.replace(/&lt;/gi, '<');
+  text = text.replace(/&gt;/gi, '>');
+  text = text.replace(/&quot;/gi, '"');
+  text = text.replace(/&#\d+;/gi, '');
+
+  // 6. Remove Google Groups / Footer / Header noise lines
+  const cleanLines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => {
+      if (!line) return false;
+      const l = line.toLowerCase();
+      if (l.includes('you received this message because you are subscribed')) return false;
+      if (l.includes('cdc-notifications-2026+unsubscribe')) return false;
+      if (l.includes('this content was created by someone else')) return false;
+      if (l.includes('to view this discussion visit')) return false;
+      if (l.includes('https://groups.google.com/d/msgid')) return false;
+      if (l.startsWith('--_000_')) return false;
+      return true;
+    });
+
+  text = cleanLines.join('\n');
+  text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return text;
+}
+
+function parseCDCNotice(cleanText: string, subject: string): any | null {
+  const isCDC = /CDC Notice|INTERNSHIP\s*\||CDC|CV Submission|Placement Notice/i.test(subject) ||
+                /Company\s*:\s*[A-Za-z]/i.test(cleanText) ||
+                /Type\s*:\s*INTERNSHIP/i.test(cleanText) ||
+                /CV Submission/i.test(cleanText);
+
+  if (!isCDC) return null;
+
+  // Extract Company Name
+  let company = '';
+  const comMatch1 = cleanText.match(/Company\s*:\s*([^\n\r]+)/i);
+  if (comMatch1) {
+    company = comMatch1[1].trim();
+  } else {
+    const comMatch2 = subject.match(/(?:INTERNSHIP\s*\|\s*[^|]+\s*\|\s*|CDC Notice.*?\s+)([A-Z0-9\s.&-]+)$/i);
+    if (comMatch2) {
+      company = comMatch2[1].trim();
+    }
   }
-  return raw;
+
+  if (!company) {
+    const knownCompanies = ['QUALCOMM', 'Google', 'Amazon', 'Atlassian', 'AlphaGrep', 'American Express', 'Bain', 'BCG', 'Capital One', 'Cisco', 'Goldman Sachs', 'Microsoft', 'Uber', 'BlackRock', 'Piramal', 'Irage', 'Graviton', 'Wells Fargo'];
+    for (const c of knownCompanies) {
+      if (new RegExp(`\\b${c}\\b`, 'i').test(cleanText) || new RegExp(`\\b${c}\\b`, 'i').test(subject)) {
+        company = c.toUpperCase();
+        break;
+      }
+    }
+  }
+
+  if (!company) company = 'CDC Company';
+
+  // Extract Notice Type
+  let noticeType = 'Notice';
+  if (/CV Submission|Resume Submission|Apply/i.test(cleanText) || /CV Submission/i.test(subject)) {
+    noticeType = 'CV Submission';
+  } else if (/PPT|Pre-Placement Talk/i.test(cleanText) || /PPT/i.test(subject)) {
+    noticeType = 'PPT';
+  } else if (/Test|Online Test|Assessment/i.test(cleanText) || /Test/i.test(subject)) {
+    noticeType = 'Test';
+  } else if (/Interview/i.test(cleanText) || /Interview/i.test(subject)) {
+    noticeType = 'Interview';
+  }
+
+  // Extract Deadline Date & Time
+  let dueDate = getISTDate().dateString;
+  let dueTime = '23:59';
+
+  const dtMatch = cleanText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)[,\s]+(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+(\d{4}))?/i);
+  if (dtMatch) {
+    let h = parseInt(dtMatch[1], 10);
+    const m = dtMatch[2];
+    const period = dtMatch[3].toUpperCase();
+    if (period === 'PM' && h < 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+
+    const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+    const mStr = monthMap[dtMatch[5].toLowerCase()] || '07';
+    const dNum = parseInt(dtMatch[4], 10);
+    const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
+    const yStr = dtMatch[6] || '2026';
+    dueDate = `${yStr}-${mStr}-${dStr}`;
+  } else {
+    const dMatch = cleanText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+    if (dMatch) {
+      dueDate = `${dMatch[3]}-${dMatch[2]}-${dMatch[1]}`;
+    }
+    const tMatch = cleanText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (tMatch) {
+      let h = parseInt(tMatch[1], 10);
+      const m = tMatch[2];
+      const period = tMatch[3].toUpperCase();
+      if (period === 'PM' && h < 12) h += 12;
+      if (period === 'AM' && h === 12) h = 0;
+      dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+    }
+  }
+
+  const title = `CDC ${noticeType}: ${company}`;
+  const priority = noticeType === 'PPT' ? 'medium' : 'high';
+  const categoryType = noticeType === 'PPT' ? 'other' : (noticeType === 'Test' || noticeType === 'Interview' ? 'exam' : 'assignment');
+
+  const descMatch = cleanText.match(/(The CV submission[\s\S]*?)(?:CDC,|$)/i) || cleanText.match(/([^.\n]+\b(?:opened|deadline|apply|submission|scheduled)\b[^.\n]+)/i);
+  const briefDesc = descMatch ? descMatch[1].replace(/\s+/g, ' ').trim().slice(0, 180) : `${company} ${noticeType} deadline.`;
+
+  return {
+    type: 'reminder',
+    title,
+    subject_code: 'INTERNSHIP',
+    reminder_type: categoryType,
+    due_date: dueDate,
+    due_time: dueTime,
+    priority,
+    description: briefDesc,
+  };
 }
 
 // ─── AI DECIDER & SANITIZATION HELPERS ──────────────────────────────
@@ -111,7 +281,8 @@ function isGibberishOrDisclaimer(text: string): boolean {
     'disclaimer', 'dear student', 'thanks & regards', 'link for the ppt will be shared',
     'candidates are required', 'instructions will be shared', 'for any queries',
     'feel free to reach', 'regards,', 'sincerely,', 'this email is intended',
-    'attachment', 'google groups', 'download the file', 'unsubscribe', 'portal notification'
+    'attachment', 'google groups', 'download the file', 'unsubscribe', 'portal notification',
+    'content-type:', 'content-transfer-encoding', 'href=', 'style=', '<body', '<div'
   ];
   return noisePatterns.some(pat => lower.includes(pat));
 }
@@ -128,9 +299,7 @@ function cleanTaskTitle(rawTitle: string): string {
 }
 
 async function extractActionsWithAI(env: Env, emailText: string): Promise<any[]> {
-  if (!env.AI) return [];
-  try {
-    const systemPrompt = `You are an expert AI task & academic action extractor for an IIT Kharagpur CSE student.
+  const systemPrompt = `You are an expert AI task & academic action extractor for an IIT Kharagpur CSE student.
 Extract ONLY GENUINE, ACTIONABLE student items mentioned in the text into a JSON array of objects.
 
 STRICT RULES:
@@ -160,20 +329,16 @@ Action Types (3 schemas):
 
 OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO EXPLANATION.`;
 
-    const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: emailText },
-      ],
-    });
-
-    const rawContent = (aiRes.response || '').trim();
+  const rawContent = await callAIModel(env, systemPrompt, emailText);
+  if (rawContent) {
     const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (err) {
+        console.error('[AI EXTRACTION PARSE ERROR]', err);
+      }
     }
-  } catch (err) {
-    console.error('[AI EXTRACTION ERROR]', err);
   }
   return [];
 }
@@ -194,9 +359,8 @@ async function decideAndRefineActions(env: Env, originalText: string, candidates
 
   if (filtered.length === 0) return [];
 
-  if (env.AI) {
-    try {
-      const deciderPrompt = `You are the Final Action Decider & Parameter Refiner for an IIT Kharagpur student app.
+  const deciderSystemPrompt = 'You filter out gibberish, eliminate duplicate tasks, and output clean valid JSON arrays.';
+  const deciderUserPrompt = `You are the Final Action Decider & Parameter Refiner for an IIT Kharagpur student app.
 Analyze the ORIGINAL TEXT and candidate extracted actions below:
 
 ORIGINAL TEXT:
@@ -209,8 +373,9 @@ ${JSON.stringify(filtered, null, 2)}
 
 DECISION & REFINEMENT INSTRUCTIONS:
 1. REJECT/FILTER OUT any candidate action that is UNWANTED GIBBERISH, boilerplate text, email disclaimers, system notifications, or non-actionable chatter.
-2. REFINE & NORMALIZE parameters for APPROVED valid actions:
-   - "title": Short (3-6 words), crisp, actionable name (e.g., "CDC Test: Irage", "Compilers Assignment 1"). NEVER a raw copied disclaimer or paragraph.
+2. IF THERE ARE DUPLICATE/MULTIPLE REMINDERS FOR THE SAME CDC NOTICE OR TASK, KEEP ONLY THE SINGLE BEST, MOST ACCURATE REMINDER.
+3. REFINE & NORMALIZE parameters for APPROVED valid actions:
+   - "title": Short (3-6 words), crisp, actionable name (e.g., "CDC CV Submission: QUALCOMM", "Compilers Assignment 1"). NEVER a raw copied disclaimer or paragraph.
    - "subject_code": Valid code (CS61064, CS39001, CS31005, CS31007, AI60213, CS31003, CS39003, INTERNSHIP, GENERAL).
    - "type": "assignment"|"class"|"exam"|"project"|"other" for reminders, or "attendance" or "intern" or "cdc_schedule".
    - "due_date": YYYY-MM-DD.
@@ -220,21 +385,16 @@ DECISION & REFINEMENT INSTRUCTIONS:
 
 OUTPUT ONLY THE FINAL DECIDED JSON ARRAY OF ACTIONS. NO MARKDOWN.`;
 
-      const aiRes = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
-        messages: [
-          { role: 'system', content: 'You filter out gibberish and output clean valid JSON arrays.' },
-          { role: 'user', content: deciderPrompt },
-        ],
-      });
-
-      const rawContent = (aiRes.response || '').trim();
-      const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
+  const rawContent = await callAIModel(env, deciderSystemPrompt, deciderUserPrompt);
+  if (rawContent) {
+    const jsonMatch = rawContent.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      try {
         const decided = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(decided)) return decided;
+        if (Array.isArray(decided) && decided.length > 0) return decided;
+      } catch (err) {
+        console.error('[AI DECIDER PARSE ERROR]', err);
       }
-    } catch (err) {
-      console.error('[AI DECIDER ERROR, FALLING BACK TO HEURISTIC DECIDER]', err);
     }
   }
 
@@ -255,7 +415,7 @@ async function processInboundEmailTrigger(
   env: Env,
   sender: string,
   subject: string,
-  emailText: string,
+  rawEmailText: string,
   autoExecute: boolean = true
 ): Promise<{
   success: boolean;
@@ -265,62 +425,72 @@ async function processInboundEmailTrigger(
   executionResults: string[];
   message?: string;
 }> {
+  // Strip MIME boundaries, quoted-printable encoding, HTML tags, and Google Groups headers
+  const emailText = stripMimeAndHtml(rawEmailText);
   let rawCandidates: any[] = [];
 
-  // 0. CDC Schedule Bulletin Detection & Parsing
-  const isCDCSchedule = /CDC|Internship schedule|Google Groups|CDC ERP Bot/i.test(emailText) || /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
-  if (isCDCSchedule) {
-    let scheduleDate = getISTDate().dateString;
-    const dMatch1 = emailText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
-    if (dMatch1) {
-      scheduleDate = `${dMatch1[3]}-${dMatch1[2]}-${dMatch1[1]}`;
-    } else {
-      const dMatch2 = emailText.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
-      if (dMatch2) {
-        const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-        const mStr = monthMap[dMatch2[2].toLowerCase()] || '07';
-        const dNum = parseInt(dMatch2[1], 10);
-        const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
-        scheduleDate = `2026-${mStr}-${dStr}`;
-      }
-    }
+  // 0. Single CDC Notice / CV Submission Extractor
+  const singleCDCNotice = parseCDCNotice(emailText, subject);
+  if (singleCDCNotice) {
+    rawCandidates.push(singleCDCNotice);
+  }
 
-    const cdcItemRegex = /(?:^|\n)\s*(\d+)\.\s*\[([^\]]+)\]\s*([^(]+)\s*\(([^)]+)\)([\s\S]*?)(?=(?:\n\s*\d+\.\s*\[|$))/gi;
-    let match;
-    while ((match = cdcItemRegex.exec(emailText)) !== null) {
-      const eventType = match[2].trim();
-      const companyName = match[3].trim();
-      const timeRange = match[4].trim();
-      const restInfo = match[5].trim();
-
-      const modeMatch = restInfo.match(/Mode\s*:\s*([^\n]+)/i);
-      const modeInfo = modeMatch ? modeMatch[1].trim() : 'Online/Offline';
-
-      const pocMatch = restInfo.match(/POC\s*:\s*([\s\S]*?)(?=\n\s*(?:Note|CDC|$|\d+\.))/i);
-      const pocInfo = pocMatch ? pocMatch[1].replace(/\n+/g, ' ').trim() : 'CDC Coordinator';
-
-      let dueTime = '10:00';
-      const tMatch = timeRange.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (tMatch) {
-        let h = parseInt(tMatch[1], 10);
-        const m = tMatch[2];
-        const period = tMatch[3].toUpperCase();
-        if (period === 'PM' && h < 12) h += 12;
-        if (period === 'AM' && h === 12) h = 0;
-        dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+  // 0b. CDC Schedule Bulletin Detection & Parsing (for numbered schedules like 1. [PPT] ... 2. [Test] ...)
+  if (rawCandidates.length === 0) {
+    const isCDCSchedule = /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
+    if (isCDCSchedule) {
+      let scheduleDate = getISTDate().dateString;
+      const dMatch1 = emailText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+      if (dMatch1) {
+        scheduleDate = `${dMatch1[3]}-${dMatch1[2]}-${dMatch1[1]}`;
+      } else {
+        const dMatch2 = emailText.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
+        if (dMatch2) {
+          const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+          const mStr = monthMap[dMatch2[2].toLowerCase()] || '07';
+          const dNum = parseInt(dMatch2[1], 10);
+          const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
+          scheduleDate = `2026-${mStr}-${dStr}`;
+        }
       }
 
-      rawCandidates.push({
-        type: 'cdc_schedule',
-        company: companyName,
-        eventType: eventType.toUpperCase(),
-        date: scheduleDate,
-        timeRange,
-        dueTime,
-        mode: modeInfo,
-        poc: pocInfo,
-        description: `[CDC ${eventType.toUpperCase()}] ${companyName} (${timeRange}). Mode: ${modeInfo}. POC: ${pocInfo}`,
-      });
+      const cdcItemRegex = /(?:^|\n)\s*(\d+)\.\s*\[([^\]]+)\]\s*([^(]+)\s*\(([^)]+)\)([\s\S]*?)(?=(?:\n\s*\d+\.\s*\[|$))/gi;
+      let match;
+      while ((match = cdcItemRegex.exec(emailText)) !== null) {
+        const eventType = match[2].trim();
+        const companyName = match[3].trim();
+        const timeRange = match[4].trim();
+        const restInfo = match[5].trim();
+
+        const modeMatch = restInfo.match(/Mode\s*:\s*([^\n]+)/i);
+        const modeInfo = modeMatch ? modeMatch[1].trim() : 'Online/Offline';
+
+        const pocMatch = restInfo.match(/POC\s*:\s*([\s\S]*?)(?=\n\s*(?:Note|CDC|$|\d+\.))/i);
+        const pocInfo = pocMatch ? pocMatch[1].replace(/\n+/g, ' ').trim() : 'CDC Coordinator';
+
+        let dueTime = '10:00';
+        const tMatch = timeRange.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (tMatch) {
+          let h = parseInt(tMatch[1], 10);
+          const m = tMatch[2];
+          const period = tMatch[3].toUpperCase();
+          if (period === 'PM' && h < 12) h += 12;
+          if (period === 'AM' && h === 12) h = 0;
+          dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+        }
+
+        rawCandidates.push({
+          type: 'cdc_schedule',
+          company: companyName,
+          eventType: eventType.toUpperCase(),
+          date: scheduleDate,
+          timeRange,
+          dueTime,
+          mode: modeInfo,
+          poc: pocInfo,
+          description: `[CDC ${eventType.toUpperCase()}] ${companyName} (${timeRange}). Mode: ${modeInfo}. POC: ${pocInfo}`,
+        });
+      }
     }
   }
 
@@ -329,136 +499,81 @@ async function processInboundEmailTrigger(
     rawCandidates = await extractActionsWithAI(env, emailText);
   }
 
-  // 2. Smart Heuristic Regex Fallback Engine with Noise Filtering
+  // 2. Smart Heuristic Fallback Engine (single task for non-schedule emails)
   if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
     rawCandidates = [];
     const todayStr = getISTDate().dateString;
-    const sentences = emailText.split(/(?:\.|\n|;|\band\b)+/gi).map((s) => s.trim()).filter(Boolean);
 
-    const subjectMap: Record<string, string> = {
-      hppc: 'CS61064', cs61064: 'CS61064',
-      'comp org lab': 'CS39001', cs39001: 'CS39001',
-      'algo 2': 'CS31005', algo: 'CS31005', cs31005: 'CS31005',
-      'comp org': 'CS31007', cs31007: 'CS31007', architecture: 'CS31007',
-      fllm: 'AI60213', llm: 'AI60213', ai60213: 'AI60213',
-      compiler: 'CS31003', compilers: 'CS31003', cs31003: 'CS31003',
-      'compiler lab': 'CS39003', 'compilers lab': 'CS39003', cs39003: 'CS39003',
-    };
+    // Check for attendance logs
+    if (/(attended|present|missed|bunked|absent|cancelled)/i.test(emailText)) {
+      const subjectMap: Record<string, string> = {
+        hppc: 'CS61064', cs61064: 'CS61064',
+        'comp org lab': 'CS39001', cs39001: 'CS39001',
+        'algo 2': 'CS31005', algo: 'CS31005', cs31005: 'CS31005',
+        'comp org': 'CS31007', cs31007: 'CS31007', architecture: 'CS31007',
+        fllm: 'AI60213', llm: 'AI60213', ai60213: 'AI60213',
+        compiler: 'CS31003', compilers: 'CS31003', cs31003: 'CS31003',
+        'compiler lab': 'CS39003', 'compilers lab': 'CS39003', cs39003: 'CS39003',
+      };
 
-    for (const s of sentences) {
-      if (isGibberishOrDisclaimer(s)) continue; // Filter out disclaimers/noise
-
-      const lower = s.toLowerCase();
-
-      if (/(attended|present|missed|bunked|absent|cancelled)/i.test(lower)) {
-        let matchedSub = 'CS31007';
-        for (const [key, code] of Object.entries(subjectMap)) {
-          if (lower.includes(key)) {
-            matchedSub = code;
-            break;
-          }
+      let matchedSub = 'CS31007';
+      for (const [key, code] of Object.entries(subjectMap)) {
+        if (emailText.toLowerCase().includes(key)) {
+          matchedSub = code;
+          break;
         }
-
-        let status: 'attended' | 'missed' | 'cancelled' = 'attended';
-        if (/(missed|bunked|absent)/i.test(lower)) status = 'missed';
-        else if (/cancelled/i.test(lower)) status = 'cancelled';
-
-        let logDate = todayStr;
-        if (/yesterday/i.test(lower)) {
-          const yDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          logDate = getISTDate(yDate).dateString;
-        }
-
-        rawCandidates.push({
-          type: 'attendance',
-          subject_code: matchedSub,
-          date: logDate,
-          status,
-          note: `Parsed: "${s}"`,
-        });
-        continue;
       }
 
-      if (/(remind|due|assignment|exam|test|prep|project|interview|cdc|intern)/i.test(lower)) {
-        let matchedSub = '';
-        for (const [key, code] of Object.entries(subjectMap)) {
-          if (lower.includes(key)) {
-            matchedSub = code;
-            break;
-          }
-        }
+      let status: 'attended' | 'missed' | 'cancelled' = 'attended';
+      if (/(missed|bunked|absent)/i.test(emailText)) status = 'missed';
+      else if (/cancelled/i.test(emailText)) status = 'cancelled';
 
-        if (!matchedSub) {
-          if (/(intern|cdc|interview|company|ppt|test|placement|stipend)/i.test(lower)) {
-            matchedSub = 'INTERNSHIP';
-          } else {
-            matchedSub = 'CS31007';
-          }
-        }
-
-        let remType: 'assignment' | 'class' | 'exam' | 'project' | 'other' = 'assignment';
-        if (/exam|test|midsem|endsem/i.test(lower)) remType = 'exam';
-        else if (/project/i.test(lower)) remType = 'project';
-
-        let dueDate = todayStr;
-        const dateMatch = s.match(/(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch) {
-          dueDate = dateMatch[1];
-        } else if (/tomorrow/i.test(lower)) {
-          const tmrw = new Date(Date.now() + 24 * 60 * 60 * 1000);
-          dueDate = getISTDate(tmrw).dateString;
-        }
-
-        let dueTime = '23:59';
-        const timeMatch = s.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
-        if (timeMatch) dueTime = timeMatch[1];
-
-        rawCandidates.push({
-          type: 'reminder',
-          title: cleanTaskTitle(s),
-          subject_code: matchedSub,
-          reminder_type: remType,
-          due_date: dueDate,
-          due_time: dueTime,
-          priority: /high|urgent|important/i.test(lower) ? 'high' : 'medium',
-          description: s,
-        });
-        continue;
+      let logDate = todayStr;
+      if (/yesterday/i.test(emailText)) {
+        const yDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        logDate = getISTDate(yDate).dateString;
       }
 
-      if (/(interview|applied|shortlist|offer|rejected|company|intern)/i.test(lower)) {
-        const knownCompanies = ['Google', 'Amazon', 'Atlassian', 'AlphaGrep', 'American Express', 'Bain', 'BCG', 'Capital One', 'Cisco', 'Goldman Sachs', 'Microsoft', 'Uber'];
-        let matchedCompany = 'Target Company';
-        for (const c of knownCompanies) {
-          if (lower.includes(c.toLowerCase())) {
-            matchedCompany = c;
-            break;
-          }
-        }
+      rawCandidates.push({
+        type: 'attendance',
+        subject_code: matchedSub,
+        date: logDate,
+        status,
+        note: `Parsed from email`,
+      });
+    }
 
-        let myStatus = 'applied';
-        if (/interview/i.test(lower)) myStatus = 'interview_good';
-        else if (/shortlist/i.test(lower)) myStatus = 'shortlisted';
-        else if (/offer/i.test(lower)) myStatus = 'offered';
-        else if (/rejected/i.test(lower)) myStatus = 'rejected';
-
-        let interviewDate = '';
-        const intDateMatch = s.match(/(\d{1,2}\s+[A-Za-z]{3}(?:,?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/i);
-        if (intDateMatch) interviewDate = intDateMatch[1];
-
-        rawCandidates.push({
-          type: 'intern',
-          company: matchedCompany,
-          myStatus,
-          interviewDate,
-          notes: s,
-        });
+    // Check for reminder/task
+    if (rawCandidates.length === 0 && /(remind|due|assignment|exam|test|prep|project|interview|cdc|intern)/i.test(emailText)) {
+      let dueDate = todayStr;
+      const dateMatch = emailText.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        dueDate = dateMatch[1];
+      } else if (/tomorrow/i.test(emailText)) {
+        const tmrw = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        dueDate = getISTDate(tmrw).dateString;
       }
+
+      let dueTime = '23:59';
+      const timeMatch = emailText.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
+      if (timeMatch) dueTime = timeMatch[1];
+
+      rawCandidates.push({
+        type: 'reminder',
+        title: cleanTaskTitle(subject || emailText.slice(0, 40)),
+        subject_code: /cdc|intern|company/i.test(emailText) ? 'INTERNSHIP' : 'GENERAL',
+        reminder_type: /exam|test|midsem/i.test(emailText) ? 'exam' : 'assignment',
+        due_date: dueDate,
+        due_time: dueTime,
+        priority: /high|urgent/i.test(emailText) ? 'high' : 'medium',
+        description: emailText.slice(0, 150),
+      });
     }
   }
 
   // 3. AI Decider & Refiner Phase: Filters out unwanted gibberish and refines parameters
-  const parsedActions = await decideAndRefineActions(env, emailText, rawCandidates);
+  const parsedActions = await decideAndRefineActions(env, rawEmailText, rawCandidates);
+
 
 
   const executionResults: string[] = [];
@@ -2032,7 +2147,7 @@ async function validateSessionToken(authHeader: string | null, db?: any): Promis
       console.error('[EMAIL RAW STREAM ERROR]', err);
     }
 
-    const emailText = extractPlainTextFromMIME(rawBody) || rawBody || subject;
+    const emailText = stripMimeAndHtml(rawBody) || subject;
     const result = await processInboundEmailTrigger(env, sender, subject, emailText, true);
     console.log(`[EMAIL ROUTING TRIGGER PROCESSED] Executed ${result.actionCount} action(s).`);
   },
