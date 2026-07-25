@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Plus, Trash2, CheckCircle2, Send, BookOpen, Calendar, X, AlertTriangle } from 'lucide-react';
+import { Bell, Plus, Trash2, CheckCircle2, Send, BookOpen, Calendar, X, AlertTriangle, Pencil } from 'lucide-react';
 import { Reminder } from '../services/api';
 import { COURSES } from '../data/timetableData';
 
@@ -55,6 +55,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
   initialSubjectFilter = 'all',
 }) => {
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [filterSubject, setFilterSubject] = useState(initialSubjectFilter);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('pending');
 
@@ -69,13 +70,43 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
   const [formSendEmail, setFormSendEmail] = useState(true);
   const [formDesc, setFormDesc] = useState('');
 
-  const resetForm = () => { setFormTitle(''); setFormDesc(''); };
+  const resetForm = () => {
+    setFormTitle('');
+    setFormDesc('');
+    setEditingReminderId(null);
+  };
+
+  const handleEditReminder = (rem: Reminder) => {
+    setEditingReminderId(rem.id);
+    setFormTitle(rem.title);
+    setFormSubject(rem.subject_code);
+    setFormType(rem.type as any);
+    setFormDueDate(rem.due_date);
+    setFormDueTime(rem.due_time || '23:59');
+    setFormPriority(rem.priority as any);
+    setFormSendEmail(rem.send_email !== false);
+    setFormDesc(rem.description || '');
+    setIsAddOpen(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
-    onSaveReminder({ title: formTitle, subject_code: formSubject, type: formType, due_date: formDueDate, due_time: formDueTime, priority: formPriority, status: 'pending', send_email: formSendEmail, description: formDesc });
-    if (formSendEmail) onSendEmail(`NEW: ${formTitle} (${formSubject})`, `Reminder: ${formTitle}\nSubject: ${formSubject}\nDue: ${formDueDate} ${formDueTime}\nPriority: ${formPriority}`);
+    onSaveReminder({
+      id: editingReminderId || undefined,
+      title: formTitle,
+      subject_code: formSubject,
+      type: formType,
+      due_date: formDueDate,
+      due_time: formDueTime,
+      priority: formPriority,
+      status: 'pending',
+      send_email: formSendEmail,
+      description: formDesc,
+    });
+    if (formSendEmail && !editingReminderId) {
+      onSendEmail(`NEW: ${formTitle} (${formSubject})`, `Reminder: ${formTitle}\nSubject: ${formSubject}\nDue: ${formDueDate} ${formDueTime}\nPriority: ${formPriority}`);
+    }
     resetForm();
     setIsAddOpen(false);
   };
@@ -274,6 +305,16 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   }}>{pCfg.label}</span>
 
                   <button
+                    onClick={() => handleEditReminder(rem)}
+                    style={{ background:'transparent', border:'none', cursor:'pointer', color:'#64748b', padding:4, borderRadius:6, lineHeight:1, transition:'color 0.12s' }}
+                    title="Edit Reminder"
+                    onMouseEnter={e => (e.currentTarget.style.color = '#818cf8')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#64748b')}
+                  >
+                    <Pencil size={13} />
+                  </button>
+
+                  <button
                     onClick={() => onDeleteReminder(rem.id)}
                     style={{ background:'transparent', border:'none', cursor:'pointer', color:'#334155', padding:4, borderRadius:6, lineHeight:1, transition:'color 0.12s' }}
                     title="Delete"
@@ -374,7 +415,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({
                   <BookOpen size={16} style={{ color:'#818cf8' }} />
                 </div>
                 <span style={{ fontSize:17, fontWeight:800, color:'#f8fafc', fontFamily:'Outfit, sans-serif' }}>
-                  Create Reminder
+                  {editingReminderId ? 'Edit Reminder' : 'Create Reminder'}
                 </span>
               </div>
               <button

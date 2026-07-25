@@ -335,12 +335,12 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
       try {
         if (act.type === 'cdc_schedule') {
           const companyName = act.company || 'Company';
-          const { results } = await env.DB.prepare(
-            'SELECT id, company, my_status, application_status FROM intern_roles WHERE LOWER(company) LIKE ?'
-          ).bind(`%${companyName.toLowerCase()}%`).all();
+          const eventTypeClean = (act.eventType || 'EVENT').toLowerCase().trim();
+          const companySlug = companyName.toLowerCase().replace(/\W+/g, '');
+          const remId = `rem-cdc-${companySlug}-${eventTypeClean}-${act.date}`;
 
-          const roleId = (results && results.length > 0) ? results[0].id : companyName.replace(/\W+/g, '');
-          const remId = `rem-cdc-${roleId}-${Date.now()}`;
+          // PPT -> Low Priority, Test/Interview -> High Priority
+          const priority = eventTypeClean === 'ppt' ? 'low' : 'high';
 
           await env.DB.prepare(`
             INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
@@ -349,6 +349,7 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
               title=excluded.title,
               due_date=excluded.due_date,
               due_time=excluded.due_time,
+              priority=excluded.priority,
               description=excluded.description,
               status='pending'
           `).bind(
@@ -358,13 +359,13 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
             'exam',
             act.date,
             act.dueTime,
-            'high',
+            priority,
             'pending',
             1,
             act.description
           ).run();
 
-          executionResults.push(`📌 Created CDC Reminder: [${act.eventType}] ${companyName} on ${act.date} at ${act.dueTime} (${act.mode})`);
+          executionResults.push(`📌 Updated/Created CDC Reminder: [${act.eventType}] ${companyName} on ${act.date} at ${act.dueTime} (${priority.toUpperCase()} priority, Mode: ${act.mode})`);
         } else if (act.type === 'attendance') {
           const id = 'att-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
           await env.DB.prepare(`
@@ -379,16 +380,26 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
 
           executionResults.push(`🟢 Logged Attendance: [${getSubjectDisplayName(act.subject_code)}] ${act.status.toUpperCase()} on ${act.date}`);
         } else if (act.type === 'reminder') {
-          const id = 'att-rem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+          const titleSlug = (act.title || 'task').toLowerCase().replace(/\W+/g, '').slice(0, 25);
+          const dueStr = act.due_date || getISTDate().dateString;
+          const id = `rem-${titleSlug}-${dueStr}`;
+
           await env.DB.prepare(`
             INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              title=excluded.title,
+              due_date=excluded.due_date,
+              due_time=excluded.due_time,
+              priority=excluded.priority,
+              description=excluded.description,
+              status='pending'
           `).bind(
             id,
             act.title || 'Parsed Task',
             act.subject_code || 'GENERAL',
             act.reminder_type || 'assignment',
-            act.due_date || getISTDate().dateString,
+            dueStr,
             act.due_time || '23:59',
             act.priority || 'medium',
             'pending',
@@ -396,7 +407,7 @@ OUTPUT ONLY A VALID JSON ARRAY. NO MARKDOWN, NO CONVERSATION.`;
             act.description || ''
           ).run();
 
-          executionResults.push(`📌 Created Reminder: "${act.title}" (${getSubjectDisplayName(act.subject_code)}) Due ${act.due_date}`);
+          executionResults.push(`📌 Saved Reminder: "${act.title}" (${getSubjectDisplayName(act.subject_code)}) Due ${dueStr}`);
         } else if (act.type === 'intern') {
           const companyName = act.company || 'Unknown Company';
           const { results } = await env.DB.prepare(
