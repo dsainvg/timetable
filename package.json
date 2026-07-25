@@ -8,6 +8,7 @@
     "server": "node server/index.js",
     "start": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "tsc && vite build",
+    "deploy": "npm run build && wrangler deploy",
     "preview": "vite preview"
   },
   "dependencies": {
