@@ -133,12 +133,15 @@ def convert():
 
         existing_status = existing.get("myStatus") if existing else None
         if r.get("application_status") == "Y":
-            if not existing_status or existing_status == "not_applied":
+            if not existing_status or existing_status == "not_applied" or existing_status == "rejected":
                 my_status = "applied"
             else:
                 my_status = existing_status
         else:
-            my_status = existing_status if existing_status else "not_applied"
+            if not existing_status or existing_status == "rejected":
+                my_status = "not_applied"
+            else:
+                my_status = existing_status
 
         entry = {
             "id": role_id,

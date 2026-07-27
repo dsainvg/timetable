@@ -174,6 +174,11 @@ function stripMimeAndHtml(raw: string): string {
 }
 
 function parseCDCNotice(cleanText: string, subject: string): any | null {
+  // If this email is a multi-item schedule bulletin (e.g. 1. [PPT] ... 2. [Test] ... or Subject: Schedule), skip single notice parsing
+  if (/\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(cleanText) || /Schedule/i.test(subject)) {
+    return null;
+  }
+
   const isCDC = /CDC Notice|INTERNSHIP\s*\||CDC|CV Submission|Placement Notice/i.test(subject) ||
                 /Company\s*:\s*[A-Za-z]/i.test(cleanText) ||
                 /Type\s*:\s*INTERNSHIP/i.test(cleanText) ||
@@ -300,12 +305,15 @@ function cleanTaskTitle(rawTitle: string): string {
 
 async function extractActionsWithAI(env: Env, emailText: string): Promise<any[]> {
   const systemPrompt = `You are an expert AI task & academic action extractor for an IIT Kharagpur CSE student.
-Extract ONLY GENUINE, ACTIONABLE student items mentioned in the text into a JSON array of objects.
+Extract ALL GENUINE, ACTIONABLE student items mentioned in the text into a JSON array of objects.
 
 STRICT RULES:
-1. DO NOT extract email disclaimers, signatures, "do not reply" footers, system notifications, or general policy/rules text.
-2. For each task, construct a short, crisp, human-readable title (max 5-6 words, e.g. "CDC Test: Irage", "Compilers Lab Assignment", "HPPC Class Attendance"). NEVER raw-copy entire paragraphs or disclaimers as titles.
-3. Map subjects to codes:
+1. Extract EVERY distinct actionable item.
+   - If the email contains ONLY ONE task/event, output a JSON array with that 1 item.
+   - If the email contains MULTIPLE tasks/events (e.g. 2 or more assignments, tests, CV submissions, PPTs, or classes), output ALL of them as separate items in the array. DO NOT merge or drop distinct tasks!
+2. DO NOT extract email disclaimers, signatures, "do not reply" footers, system notifications, or general policy/rules text.
+3. For each task, construct a short, crisp, human-readable title (max 4-6 words, e.g. "CDC CV Submission: QUALCOMM", "Compilers Lab Assignment 1", "HPPC Lecture Attendance"). NEVER raw-copy entire paragraphs or disclaimers as titles.
+4. Map subjects to codes:
    - HPPC -> CS61064
    - Comp Org Lab -> CS39001
    - Algo 2 -> CS31005
@@ -365,7 +373,7 @@ Analyze the ORIGINAL TEXT and candidate extracted actions below:
 
 ORIGINAL TEXT:
 """
-${originalText.substring(0, 1500)}
+${originalText.substring(0, 2000)}
 """
 
 CANDIDATE ACTIONS:
@@ -373,7 +381,7 @@ ${JSON.stringify(filtered, null, 2)}
 
 DECISION & REFINEMENT INSTRUCTIONS:
 1. REJECT/FILTER OUT any candidate action that is UNWANTED GIBBERISH, boilerplate text, email disclaimers, system notifications, or non-actionable chatter.
-2. IF THERE ARE DUPLICATE/MULTIPLE REMINDERS FOR THE SAME CDC NOTICE OR TASK, KEEP ONLY THE SINGLE BEST, MOST ACCURATE REMINDER.
+2. DO NOT artificially limit output to 1 task. If the email contains MULTIPLE distinct tasks/events, approve and output ALL of them as separate items in the JSON array. Only merge or eliminate candidate items if they are exact duplicates of the SAME event.
 3. REFINE & NORMALIZE parameters for APPROVED valid actions:
    - "title": Short (3-6 words), crisp, actionable name (e.g., "CDC CV Submission: QUALCOMM", "Compilers Assignment 1"). NEVER a raw copied disclaimer or paragraph.
    - "subject_code": Valid code (CS61064, CS39001, CS31005, CS31007, AI60213, CS31003, CS39003, INTERNSHIP, GENERAL).
@@ -436,70 +444,81 @@ async function processInboundEmailTrigger(
   }
 
   // 0b. CDC Schedule Bulletin Detection & Parsing (for numbered schedules like 1. [PPT] ... 2. [Test] ...)
-  if (rawCandidates.length === 0) {
-    const isCDCSchedule = /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
-    if (isCDCSchedule) {
-      let scheduleDate = getISTDate().dateString;
-      const dMatch1 = emailText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
-      if (dMatch1) {
-        scheduleDate = `${dMatch1[3]}-${dMatch1[2]}-${dMatch1[1]}`;
-      } else {
-        const dMatch2 = emailText.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
-        if (dMatch2) {
-          const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-          const mStr = monthMap[dMatch2[2].toLowerCase()] || '07';
-          const dNum = parseInt(dMatch2[1], 10);
-          const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
-          scheduleDate = `2026-${mStr}-${dStr}`;
+  const isCDCSchedule = /\d+\.\s*\[(PPT|Test|TEST|Interview|Slot)\]/i.test(emailText);
+  if (isCDCSchedule) {
+    let scheduleDate = getISTDate().dateString;
+    const dMatch1 = emailText.match(/(\d{2})[-/](\d{2})[-/](\d{4})/);
+    if (dMatch1) {
+      scheduleDate = `${dMatch1[3]}-${dMatch1[2]}-${dMatch1[1]}`;
+    } else {
+      const dMatch2 = emailText.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
+      if (dMatch2) {
+        const monthMap: Record<string, string> = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+        const mStr = monthMap[dMatch2[2].toLowerCase()] || '07';
+        const dNum = parseInt(dMatch2[1], 10);
+        const dStr = dNum < 10 ? `0${dNum}` : `${dNum}`;
+        scheduleDate = `2026-${mStr}-${dStr}`;
+      }
+    }
+
+    const cdcItemRegex = /(?:^|\n)\s*(\d+)\.\s*\[([^\]]+)\]\s*([^(]+)\s*\(([^)]+)\)([\s\S]*?)(?=(?:\n\s*\d+\.\s*\[|Note|CDC|$))/gi;
+    let match;
+    while ((match = cdcItemRegex.exec(emailText)) !== null) {
+      const eventType = match[2].trim();
+      const companyName = match[3].trim();
+      const timeRange = match[4].trim();
+      const restInfo = match[5].trim();
+
+      const modeMatch = restInfo.match(/Mode\s*:\s*([^\n]+)/i);
+      const modeInfo = modeMatch ? modeMatch[1].trim() : 'Online/Offline';
+
+      const pocMatch = restInfo.match(/POC\s*:\s*([\s\S]*?)(?=\n\s*(?:Note|CDC|$|\d+\.))/i);
+      const pocInfo = pocMatch ? pocMatch[1].replace(/\n+/g, ' ').trim() : 'CDC Coordinator';
+
+      let dueTime = '10:00';
+      let itemDate = scheduleDate;
+      const tMatch = timeRange.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (tMatch) {
+        let h = parseInt(tMatch[1], 10);
+        const m = tMatch[2];
+        const period = tMatch[3].toUpperCase();
+        if (period === 'PM' && h < 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        dueTime = `${h < 10 ? '0' + h : h}:${m}`;
+
+        // Handle overnight slots past midnight (e.g. 01:30 AM on a schedule dated 27th July -> 28th July)
+        if (period === 'AM' && h < 6) {
+          try {
+            const dObj = new Date(scheduleDate + 'T00:00:00Z');
+            dObj.setUTCDate(dObj.getUTCDate() + 1);
+            itemDate = dObj.toISOString().split('T')[0];
+          } catch (e) {}
         }
       }
 
-      const cdcItemRegex = /(?:^|\n)\s*(\d+)\.\s*\[([^\]]+)\]\s*([^(]+)\s*\(([^)]+)\)([\s\S]*?)(?=(?:\n\s*\d+\.\s*\[|$))/gi;
-      let match;
-      while ((match = cdcItemRegex.exec(emailText)) !== null) {
-        const eventType = match[2].trim();
-        const companyName = match[3].trim();
-        const timeRange = match[4].trim();
-        const restInfo = match[5].trim();
-
-        const modeMatch = restInfo.match(/Mode\s*:\s*([^\n]+)/i);
-        const modeInfo = modeMatch ? modeMatch[1].trim() : 'Online/Offline';
-
-        const pocMatch = restInfo.match(/POC\s*:\s*([\s\S]*?)(?=\n\s*(?:Note|CDC|$|\d+\.))/i);
-        const pocInfo = pocMatch ? pocMatch[1].replace(/\n+/g, ' ').trim() : 'CDC Coordinator';
-
-        let dueTime = '10:00';
-        const tMatch = timeRange.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-        if (tMatch) {
-          let h = parseInt(tMatch[1], 10);
-          const m = tMatch[2];
-          const period = tMatch[3].toUpperCase();
-          if (period === 'PM' && h < 12) h += 12;
-          if (period === 'AM' && h === 12) h = 0;
-          dueTime = `${h < 10 ? '0' + h : h}:${m}`;
-        }
-
-        rawCandidates.push({
-          type: 'cdc_schedule',
-          company: companyName,
-          eventType: eventType.toUpperCase(),
-          date: scheduleDate,
-          timeRange,
-          dueTime,
-          mode: modeInfo,
-          poc: pocInfo,
-          description: `[CDC ${eventType.toUpperCase()}] ${companyName} (${timeRange}). Mode: ${modeInfo}. POC: ${pocInfo}`,
-        });
-      }
+      rawCandidates.push({
+        type: 'cdc_schedule',
+        company: companyName,
+        eventType: eventType.toUpperCase(),
+        date: itemDate,
+        timeRange,
+        dueTime,
+        mode: modeInfo,
+        poc: pocInfo,
+        description: `[CDC ${eventType.toUpperCase()}] ${companyName} (${timeRange}). Mode: ${modeInfo}. POC: ${pocInfo}`,
+      });
     }
   }
 
-  // 1. Attempt Workers AI extraction if available
-  if (rawCandidates.length === 0 && env.AI) {
-    rawCandidates = await extractActionsWithAI(env, emailText);
+  // 1. Attempt Workers AI extraction if available (always run AI so it extracts 1 or multiple tasks directly from text)
+  if (env.AI) {
+    const aiCandidates = await extractActionsWithAI(env, emailText);
+    if (Array.isArray(aiCandidates) && aiCandidates.length > 0) {
+      rawCandidates.push(...aiCandidates);
+    }
   }
 
-  // 2. Smart Heuristic Fallback Engine (single task for non-schedule emails)
+  // 2. Smart Heuristic Fallback Engine (only if zero candidates extracted so far)
   if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
     rawCandidates = [];
     const todayStr = getISTDate().dateString;
@@ -574,8 +593,6 @@ async function processInboundEmailTrigger(
   // 3. AI Decider & Refiner Phase: Filters out unwanted gibberish and refines parameters
   const parsedActions = await decideAndRefineActions(env, rawEmailText, rawCandidates);
 
-
-
   const executionResults: string[] = [];
 
   // 3. Auto-Execute extracted actions in database if enabled
@@ -633,9 +650,10 @@ async function processInboundEmailTrigger(
 
           executionResults.push(`🟢 Logged Attendance: [${getSubjectDisplayName(act.subject_code)}] ${act.status.toUpperCase()} on ${act.date}`);
         } else if (act.type === 'reminder') {
-          const titleSlug = (act.title || 'task').toLowerCase().replace(/\W+/g, '').slice(0, 25);
+          const titleSlug = (act.title || 'task').toLowerCase().replace(/\W+/g, '').slice(0, 20);
           const dueStr = act.due_date || getISTDate().dateString;
-          const id = `rem-${titleSlug}-${dueStr}`;
+          const randSuffix = Math.random().toString(36).substring(2, 6);
+          const id = `rem-${titleSlug}-${dueStr}-${randSuffix}`;
 
           await env.DB.prepare(`
             INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)

@@ -121,6 +121,7 @@ export const InternTracker: React.FC = () => {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [search, setSearch] = useState('');
+  const [showNotApplied, setShowNotApplied] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -318,7 +319,7 @@ export const InternTracker: React.FC = () => {
 
   const stats = useMemo(() => ({
     total: interns.length,
-    applied: interns.filter(i => i.myStatus !== 'not_applied').length,
+    applied: interns.filter(i => i.myStatus !== 'not_applied' && i.myStatus !== 'rejected').length,
     no_oa: interns.filter(i => i.myStatus === 'applied').length,
     oa_good: interns.filter(i => i.myStatus === 'oa_good').length,
     oa_bad: interns.filter(i => i.myStatus === 'oa_bad').length,
@@ -332,7 +333,7 @@ export const InternTracker: React.FC = () => {
 
   const filterCounts = useMemo(() => {
     const counts: Record<FilterKey, number> = {
-      active: interns.filter(i => i.myStatus !== 'rejected').length,
+      active: interns.filter(i => i.myStatus !== 'rejected' && i.myStatus !== 'not_applied').length,
       all: interns.length,
       not_applied: interns.filter(i => i.myStatus === 'not_applied').length,
       applied: interns.filter(i => i.myStatus === 'applied').length,
@@ -346,12 +347,12 @@ export const InternTracker: React.FC = () => {
     return counts;
   }, [interns]);
 
-  const { activeList, rejectedList } = useMemo(() => {
+  const { activeList, notAppliedList, rejectedList } = useMemo(() => {
     let filtered = interns.filter(i => {
       if (filter === 'rejected') return i.myStatus === 'rejected';
-      if (i.myStatus === 'rejected') return false; // always separate for other tabs
+      if (filter === 'not_applied') return i.myStatus === 'not_applied';
+      if (filter === 'active') return i.myStatus !== 'rejected' && i.myStatus !== 'not_applied';
       if (filter === 'all') return true;
-      if (filter === 'active') return true;
       return i.myStatus === filter;
     });
     if (search.trim()) {
@@ -359,13 +360,6 @@ export const InternTracker: React.FC = () => {
       filtered = filtered.filter(i => i.company.toLowerCase().includes(q));
     }
     const sorted = [...filtered].sort((a, b) => {
-      // Bubble down empty application status: Y (yes) goes on top, empty/other stays at bottom
-      const aApplied = a.applicationStatus === 'Y';
-      const bApplied = b.applicationStatus === 'Y';
-      if (aApplied && !bApplied) return -1;
-      if (!aApplied && bApplied) return 1;
-
-      // Internal sorting within the same group
       let cmp = 0;
       if (sortKey === 'ctc') cmp = a.ctc - b.ctc;
       else if (sortKey === 'company') cmp = a.company.localeCompare(b.company);
@@ -375,6 +369,7 @@ export const InternTracker: React.FC = () => {
     });
     return {
       activeList: sorted,
+      notAppliedList: interns.filter(i => i.myStatus === 'not_applied'),
       rejectedList: interns.filter(i => i.myStatus === 'rejected'),
     };
   }, [interns, filter, search, sortKey, sortDir]);
@@ -968,6 +963,71 @@ export const InternTracker: React.FC = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           {activeList.map(i => renderCard(i))}
+        </div>
+      )}
+
+      {/* ── Not Applied Accordion (Same look & structure as Rejected div) ──────────────── */}
+      {notAppliedList.length > 0 && filter !== 'not_applied' && (
+        <div style={{ background: 'rgba(148,163,184,0.04)', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 14, overflow: 'hidden' }}>
+          <button
+            onClick={() => setShowNotApplied(!showNotApplied)}
+            style={{
+              width: '100%', padding: '13px 18px', background: 'transparent', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', color: '#94a3b8',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 14 }}>⏳</span>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>
+                Not Applied ({notAppliedList.length}) — Hidden from main list
+              </span>
+            </div>
+            <ChevronDown size={15} style={{ transform: showNotApplied ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          </button>
+
+          {showNotApplied && (
+            <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {notAppliedList.map(intern => (
+                <div key={intern.id} style={{
+                  background: 'rgba(3,7,18,0.6)', border: '1px solid rgba(148,163,184,0.18)',
+                  borderRadius: 12, padding: '12px 14px', opacity: 0.85,
+                }}>
+                  <div
+                    onClick={() => setSelectedDetail(intern)}
+                    style={{ fontWeight: 700, fontSize: 13, color: '#94a3b8', marginBottom: 5, cursor: 'pointer' }}
+                    title="Click to view details"
+                  >
+                    {intern.company}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: '#94a3b8', background: 'rgba(148,163,184,0.08)', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 20, padding: '2px 8px', fontWeight: 700 }}>
+                      NOT APPLIED
+                    </span>
+                    <span style={{ fontSize: 11, color: '#4ade80', fontFamily: 'Outfit, sans-serif', fontWeight: 700 }}>
+                      {formatCTC(intern.ctc, intern.currency)}
+                    </span>
+                  </div>
+                  {intern.resumeEnd && (
+                    <div style={{ fontSize: 10, color: '#fca5a5', marginTop: 6, fontFamily: 'monospace' }}>
+                      Deadline: {formatDisplayDate(intern.resumeEnd)}
+                    </div>
+                  )}
+                  {intern.notes && <p style={{ fontSize: 11, color: '#64748b', marginTop: 6, marginBottom: 6, lineHeight: 1.4 }}>{intern.notes}</p>}
+                  <button
+                    onClick={() => setStatus(intern.id, 'applied')}
+                    style={{
+                      marginTop: 8, padding: '5px 11px', borderRadius: 8, width: '100%',
+                      border: '1px solid rgba(129,140,248,0.4)', background: 'rgba(129,140,248,0.1)',
+                      color: '#818cf8', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    📩 Move to Applied / Active
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
