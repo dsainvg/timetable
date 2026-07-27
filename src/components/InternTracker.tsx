@@ -22,7 +22,7 @@ import {
   saveInternData,
   formatCTC,
 } from '../data/internData';
-import { getInternRoles, saveInternRole } from '../services/api';
+import { getInternRoles, saveInternRole, saveReminder, deleteReminder } from '../services/api';
 
 type SortKey = 'company' | 'ctc' | 'resumeEnd' | 'myStatus';
 type SortDir = 'asc' | 'desc';
@@ -125,60 +125,12 @@ export const InternTracker: React.FC = () => {
   const [showRejected, setShowRejected] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
-  const [editInterviewId, setEditInterviewId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<InternCompany | null>(null);
 
-  const QUICK_DATE_OPTIONS = useMemo(() => {
-    const options: { value: string; label: string }[] = [];
-    const today = new Date();
-    for (let offset = -7; offset <= 14; offset++) {
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-      const dayNum = d.getDate();
-      const monthStr = MONTH_NAMES[d.getMonth()];
-      const dayOfWeek = DAY_SHORT[d.getDay()];
-
-      const dateVal = `${dayNum} ${monthStr}`;
-      let label = `${dayOfWeek}, ${dayNum} ${monthStr}`;
-
-      if (offset === 0) label = `Today (${dayNum} ${monthStr})`;
-      else if (offset === 1) label = `Tomorrow (${dayNum} ${monthStr})`;
-      else if (offset === -1) label = `Yesterday (${dayNum} ${monthStr})`;
-
-      options.push({ value: dateVal, label });
-    }
-    return options;
-  }, []);
-
-  const [selectedDayVal, setSelectedDayVal] = useState<string>('');
-  const [selectedTimeVal, setSelectedTimeVal] = useState<string>('10:00 AM');
-
-  const DETAILED_TIME_SLOTS = useMemo(() => {
-    const slots: string[] = [];
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const period = h >= 12 ? 'PM' : 'AM';
-        const h12 = h % 12 === 0 ? 12 : h % 12;
-        const hStr = h12 < 10 ? `0${h12}` : `${h12}`;
-        const mStr = m < 10 ? `0${m}` : `${m}`;
-        slots.push(`${hStr}:${mStr} ${period}`);
-      }
-    }
-    slots.push('11:59 PM');
-    return slots;
-  }, []);
-
-  const openInterviewPicker = (intern: InternCompany) => {
-    setEditInterviewId(intern.id);
-    const matchOpt = QUICK_DATE_OPTIONS.find(o => intern.interviewDate.includes(o.value));
-    setSelectedDayVal(matchOpt ? matchOpt.value : QUICK_DATE_OPTIONS[7].value);
-
-    const timeMatch = intern.interviewDate.match(/(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i);
-    if (timeMatch) {
-      setSelectedTimeVal(timeMatch[1]);
-    } else {
-      setSelectedTimeVal('10:00 AM');
-    }
-  };
+  // ─── Interview Date Modal State ───
+  const [editInterviewRole, setEditInterviewRole] = useState<InternCompany | null>(null);
+  const [pickerDate, setPickerDate] = useState<string>(''); // YYYY-MM-DD
+  const [pickerTime, setPickerTime] = useState<string>('10:00'); // HH:MM
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -247,70 +199,82 @@ export const InternTracker: React.FC = () => {
     }
   };
 
-  const saveInterview = (id: string, dateVal?: string) => {
-    const role = interns.find(i => i.id === id);
-    if (role) {
-      const valToSave = dateVal !== undefined ? dateVal : `${selectedDayVal}, ${selectedTimeVal}`;
-      const updatedRole = { ...role, interviewDate: valToSave };
-      persist(interns.map(i => i.id === id ? updatedRole : i), updatedRole);
-      setEditInterviewId(null);
+  const openInterviewModal = (intern: InternCompany) => {
+    setEditInterviewRole(intern);
+    let initialDate = '';
+    let initialTime = '10:00';
+
+    if (intern.interviewDate) {
+      const parts = intern.interviewDate.trim().split(/\s+/);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(parts[0])) {
+        initialDate = parts[0];
+      }
+      if (parts[1] && /^\d{2}:\d{2}$/.test(parts[1])) {
+        initialTime = parts[1];
+      }
     }
+
+    if (!initialDate) {
+      const tmrw = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const yyyy = tmrw.getFullYear();
+      const mm = String(tmrw.getMonth() + 1).padStart(2, '0');
+      const dd = String(tmrw.getDate()).padStart(2, '0');
+      initialDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    setPickerDate(initialDate);
+    setPickerTime(initialTime);
   };
 
-  const renderDatePicker = (intern: InternCompany) => (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <select
-        value={selectedDayVal}
-        onChange={e => setSelectedDayVal(e.target.value)}
-        style={{
-          background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(99,102,241,0.4)',
-          borderRadius: 6, padding: '3px 6px', color: '#818cf8',
-          fontSize: 11, fontWeight: 700, outline: 'none', cursor: 'pointer',
-        }}
-      >
-        {QUICK_DATE_OPTIONS.map(opt => (
-          <option key={opt.value} value={opt.value} style={{ background: '#0b0f19', color: '#e2e8f0' }}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+  const handleConfirmInterviewSave = async () => {
+    if (!editInterviewRole || !pickerDate) return;
 
-      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-        <input
-          list={`time-list-${intern.id}`}
-          value={selectedTimeVal}
-          onChange={e => setSelectedTimeVal(e.target.value)}
-          placeholder="e.g. 10:15 AM"
-          style={{
-            background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(74,222,128,0.4)',
-            borderRadius: 6, padding: '3px 6px', color: '#4ade80',
-            fontSize: 11, fontWeight: 700, outline: 'none', width: 105,
-            fontFamily: 'monospace',
-          }}
-        />
-        <datalist id={`time-list-${intern.id}`}>
-          {DETAILED_TIME_SLOTS.map(t => (
-            <option key={t} value={t} />
-          ))}
-        </datalist>
-      </div>
+    const valToSave = `${pickerDate} ${pickerTime || '10:00'}`;
+    const updatedRole = { ...editInterviewRole, interviewDate: valToSave };
 
-      <button
-        onClick={() => saveInterview(intern.id)}
-        title="Save Date & Time"
-        style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#4ade80', lineHeight: 1 }}
-      >
-        <Check size={11} />
-      </button>
-      <button
-        onClick={() => saveInterview(intern.id, '')}
-        title="Clear Date"
-        style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 5, padding: '3px 6px', cursor: 'pointer', color: '#ef4444', lineHeight: 1 }}
-      >
-        <X size={11} />
-      </button>
-    </div>
-  );
+    // 1. Persist Intern Role
+    persist(interns.map(i => i.id === editInterviewRole.id ? updatedRole : i), updatedRole);
+
+    // 2. Automatically Create/Update High Priority Reminder Task
+    try {
+      const remId = 'rem-interview-' + editInterviewRole.id;
+      await saveReminder({
+        id: remId,
+        title: `Interview: ${editInterviewRole.company}`,
+        subject_code: 'INTERNSHIP',
+        type: 'exam',
+        due_date: pickerDate,
+        due_time: pickerTime || '10:00',
+        priority: 'high',
+        status: 'pending',
+        send_email: true,
+        description: `Interview session scheduled for ${editInterviewRole.company} (${editInterviewRole.positionNote || 'Intern'}).`,
+      });
+    } catch (e) {
+      console.error('Failed to sync interview date task:', e);
+    }
+
+    setEditInterviewRole(null);
+  };
+
+  const handleClearInterviewDate = async () => {
+    if (!editInterviewRole) return;
+
+    const updatedRole = { ...editInterviewRole, interviewDate: '' };
+
+    // 1. Clear Intern Role interviewDate
+    persist(interns.map(i => i.id === editInterviewRole.id ? updatedRole : i), updatedRole);
+
+    // 2. Remove Task from Reminders
+    try {
+      const remId = 'rem-interview-' + editInterviewRole.id;
+      await deleteReminder(remId);
+    } catch (e) {
+      console.error('Failed to delete reminder task:', e);
+    }
+
+    setEditInterviewRole(null);
+  };
 
   const handleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -454,17 +418,22 @@ export const InternTracker: React.FC = () => {
 
         {/* Interview */}
         <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-          {editInterviewId === intern.id ? (
-            renderDatePicker(intern)
-          ) : (
-            <span
-              onClick={() => openInterviewPicker(intern)}
-              style={{ fontSize: 11, color: intern.interviewDate ? '#fdba74' : '#334155', fontFamily: 'monospace', cursor: 'pointer' }}
-              title="Click to pick interview date"
-            >
-              {formatDisplayDate(intern.interviewDate) || '— set date'}
-            </span>
-          )}
+          <button
+            onClick={() => openInterviewModal(intern)}
+            style={{
+              background: intern.interviewDate ? 'rgba(251,146,60,0.12)' : 'transparent',
+              border: intern.interviewDate ? '1px solid rgba(251,146,60,0.35)' : '1px dashed rgba(51,65,85,0.6)',
+              borderRadius: 8, padding: '4px 10px',
+              color: intern.interviewDate ? '#fdba74' : '#64748b',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontFamily: 'monospace', transition: 'all 0.15s',
+            }}
+            title="Click to set/edit interview schedule & add task"
+          >
+            <span>📅</span>
+            <span>{formatDisplayDate(intern.interviewDate) || '+ set date'}</span>
+          </button>
         </td>
 
         {/* Status Picker */}
@@ -627,17 +596,22 @@ export const InternTracker: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Interview</div>
-            {editInterviewId === intern.id ? (
-              renderDatePicker(intern)
-            ) : (
-              <div
-                onClick={() => openInterviewPicker(intern)}
-                style={{ fontSize: 11, color: intern.interviewDate ? '#fdba74' : '#64748b', fontFamily: 'monospace', marginTop: 1, cursor: 'pointer' }}
-                title="Click to pick interview date"
-              >
-                {formatDisplayDate(intern.interviewDate) || '+ set date'}
-              </div>
-            )}
+            <button
+              onClick={() => openInterviewModal(intern)}
+              style={{
+                background: intern.interviewDate ? 'rgba(251,146,60,0.12)' : 'rgba(15,23,42,0.6)',
+                border: intern.interviewDate ? '1px solid rgba(251,146,60,0.35)' : '1px dashed rgba(51,65,85,0.6)',
+                borderRadius: 6, padding: '3px 8px', marginTop: 2,
+                color: intern.interviewDate ? '#fdba74' : '#64748b',
+                fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontFamily: 'monospace', transition: 'all 0.15s',
+              }}
+              title="Click to set/edit interview schedule & add task"
+            >
+              <span>📅</span>
+              <span>{formatDisplayDate(intern.interviewDate) || '+ set date'}</span>
+            </button>
           </div>
         </div>
 
@@ -1288,6 +1262,164 @@ export const InternTracker: React.FC = () => {
                 >
                   Open ERP JNF page ↗
                 </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sleek Interview Schedule & Task Modal ── */}
+      {editInterviewRole && (
+        <div
+          onClick={() => setEditInterviewRole(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
+            zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#090d16', border: '1px solid rgba(99,102,241,0.35)',
+              borderRadius: 18, width: '100%', maxWidth: '420px',
+              padding: '22px 24px',
+              boxShadow: '0 20px 40px -15px rgba(0,0,0,0.8), 0 0 30px rgba(99,102,241,0.12)',
+              display: 'flex', flexDirection: 'column', gap: 16,
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  📅 Set Interview Schedule
+                </div>
+                <h4 style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 800, color: '#f8fafc', fontFamily: 'Outfit, sans-serif' }}>
+                  {editInterviewRole.company}
+                </h4>
+              </div>
+              <button
+                onClick={() => setEditInterviewRole(null)}
+                style={{
+                  background: 'rgba(30,41,59,0.5)', border: '1px solid rgba(51,65,85,0.4)',
+                  borderRadius: '50%', width: 26, height: 26, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  color: '#94a3b8', transition: 'all 0.15s',
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>
+                Quick Presets
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Today', days: 0 },
+                  { label: 'Tomorrow', days: 1 },
+                  { label: 'In 2 Days', days: 2 },
+                  { label: 'In 3 Days', days: 3 },
+                  { label: 'In 1 Week', days: 7 },
+                ].map(p => {
+                  const d = new Date(Date.now() + p.days * 24 * 60 * 60 * 1000);
+                  const iso = d.toISOString().split('T')[0];
+                  const isSelected = pickerDate === iso;
+                  return (
+                    <button
+                      key={p.label}
+                      onClick={() => setPickerDate(iso)}
+                      style={{
+                        padding: '4px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        border: isSelected ? '1px solid #818cf8' : '1px solid rgba(51,65,85,0.5)',
+                        background: isSelected ? 'rgba(129,140,248,0.2)' : 'rgba(15,23,42,0.6)',
+                        color: isSelected ? '#a5b4fc' : '#94a3b8',
+                        cursor: 'pointer', transition: 'all 0.12s',
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Date & Time Inputs */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 5 }}>
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={pickerDate}
+                  onChange={e => setPickerDate(e.target.value)}
+                  style={{
+                    width: '100%', background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(99,102,241,0.4)',
+                    borderRadius: 8, padding: '8px 10px', color: '#f8fafc', fontSize: 13,
+                    fontWeight: 700, outline: 'none', fontFamily: 'monospace', colorScheme: 'dark',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 5 }}>
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={pickerTime}
+                  onChange={e => setPickerTime(e.target.value)}
+                  style={{
+                    width: '100%', background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(74,222,128,0.4)',
+                    borderRadius: 8, padding: '8px 10px', color: '#4ade80', fontSize: 13,
+                    fontWeight: 700, outline: 'none', fontFamily: 'monospace', colorScheme: 'dark',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Task Banner */}
+            <div style={{
+              fontSize: 11, color: '#fb923c', background: 'rgba(251,146,60,0.08)',
+              border: '1px solid rgba(251,146,60,0.25)', borderRadius: 10, padding: '9px 12px',
+              display: 'flex', alignItems: 'center', gap: 7, lineHeight: 1.4,
+            }}>
+              <span style={{ fontSize: 13 }}>📌</span>
+              <span>Saving will automatically create a <strong>High Priority Task</strong> in your Reminders Manager!</span>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button
+                onClick={handleConfirmInterviewSave}
+                style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 10,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                  border: 'none', color: '#ffffff', fontWeight: 800, fontSize: 13,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  boxShadow: '0 4px 14px rgba(99,102,241,0.35)', transition: 'all 0.15s',
+                }}
+              >
+                <Check size={15} /> Save & Create Task
+              </button>
+
+              {editInterviewRole.interviewDate && (
+                <button
+                  onClick={handleClearInterviewDate}
+                  style={{
+                    padding: '10px 14px', borderRadius: 10,
+                    background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#f87171', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  title="Remove interview date and task"
+                >
+                  Clear
+                </button>
               )}
             </div>
           </div>
