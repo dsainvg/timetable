@@ -15,15 +15,20 @@ To connect a custom MCP server to Gemini Apps, ensure you meet Google's requirem
 
 ## Step-by-Step Setup Guide
 
-### 1. Obtain Your MCP Server URL
-- **Production (Cloudflare Workers)**: `https://<your-worker-domain>.workers.dev/mcp`
-- **Local Server (Local Tunnel / ngrok)**: `https://<your-subdomain>.ngrok-free.app/mcp`
+### 1. Obtain Your MCP Server URL & Access Key
+The MCP endpoint requires authentication using your application passcode (`APP_PASSWORD`, default: `24cs10097`) or session token.
+
+Append your passcode as a query parameter in the URL:
+- **Production (Cloudflare Workers)**: `https://<your-worker-domain>.workers.dev/mcp?key=24cs10097`
+- **Local Server (Local Tunnel / ngrok)**: `https://<your-subdomain>.ngrok-free.app/mcp?key=24cs10097`
+
+*(Alternatively, clients supporting HTTP headers can pass `Authorization: Bearer <passcode_or_token>` or `X-API-Key: <passcode_or_token>`)*
 
 ### 2. Add Custom App in Gemini Web App
 1. Open [gemini.google.com](https://gemini.google.com) on your computer.
 2. Click **Settings & help** (⚙️) in the bottom-left corner and select **Connected Apps**.
 3. Under **Custom apps for Spark**, click **Add a custom app link**.
-4. Enter your MCP server URL (e.g. `https://<your-domain>/mcp`).
+4. Enter your authenticated MCP server URL (e.g. `https://<your-domain>/mcp?key=24cs10097`).
 5. Click **Next** and follow the on-screen instructions to authorize.
 
 ---
@@ -47,6 +52,7 @@ Once connected, Gemini Spark can invoke the following custom tools automatically
 The `/mcp` server endpoint complies with the standard **Model Context Protocol (MCP)** specifications:
 - **Transport**: Supports both **JSON-RPC 2.0** over `POST /mcp` and **Server-Sent Events (SSE)** over `GET /mcp`.
 - **CORS**: Configured for cross-origin access (`Access-Control-Allow-Origin: *`).
+- **Authentication**: Requires passcode or valid session token provided via `key`, `api_key`, `token`, `password`, or `auth` query string parameters, `Authorization` header (`Bearer <token>`), or `X-API-Key` header. Unauthenticated requests return `401 Unauthorized`.
 - **Methods Supported**:
   - `initialize`: Exposes protocol version `2024-11-05` and server metadata (`iitkgp-timetable-mcp`).
   - `notifications/initialized`: Acknowledges client session startup.
