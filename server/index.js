@@ -3,6 +3,7 @@ import cors from 'cors';
 import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -290,37 +291,71 @@ async function executeMcpToolLocal(name, args) {
   throw new Error(`Unknown tool name '${name}'.`);
 }
 
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
 function validateMcpAuth(req) {
   const paramKey =
     req.query.key ||
     req.query.api_key ||
     req.query.token ||
+    req.query.access_token ||
     req.query.password ||
     req.query.auth;
 
   const authHeader = req.headers.authorization;
   const apiKeyHeader = req.headers['x-api-key'];
 
-  const secret = (process.env.APP_PASSWORD || '24cs10097').trim();
+  const envSecrets = [
+    process.env.MCP_API_KEY,
+    process.env.MCP_AUTH_TOKEN,
+    process.env.MCP_PASSWORD,
+    process.env.APP_PASSWORD,
+  ].filter((s) => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim());
 
-  if (paramKey) {
-    const key = String(paramKey).trim();
-    if (key === secret || validateSessionToken(`Bearer ${key}`)) {
-      return true;
+  const secrets = envSecrets.length > 0 ? envSecrets : ['24cs10097'];
+
+  function isSecretValid(candidate) {
+    if (!candidate) return false;
+    const trimmed = String(candidate).trim();
+    for (const secret of secrets) {
+      if (timingSafeEqualStr(trimmed, secret)) return true;
     }
+    if (typeof validateSessionToken === 'function') {
+      return validateSessionToken(`Bearer ${trimmed}`);
+    }
+    return false;
   }
 
-  if (apiKeyHeader) {
-    const key = String(apiKeyHeader).trim();
-    if (key === secret || validateSessionToken(`Bearer ${key}`)) {
-      return true;
-    }
+  if (paramKey && isSecretValid(paramKey)) {
+    return true;
+  }
+
+  if (apiKeyHeader && isSecretValid(apiKeyHeader)) {
+    return true;
   }
 
   if (authHeader) {
-    const raw = String(authHeader).replace(/^Bearer\s+/i, '').trim();
-    if (raw === secret || validateSessionToken(authHeader)) {
-      return true;
+    const strHeader = String(authHeader);
+    if (/^Bearer\s+/i.test(strHeader)) {
+      const raw = strHeader.replace(/^Bearer\s+/i, '').trim();
+      if (isSecretValid(raw)) return true;
+    } else if (/^Basic\s+/i.test(strHeader)) {
+      try {
+        const b64 = strHeader.replace(/^Basic\s+/i, '').trim();
+        const decoded = Buffer.from(b64, 'base64').toString('utf8');
+        const parts = decoded.split(':');
+        for (const part of parts) {
+          if (part && isSecretValid(part)) return true;
+        }
+      } catch (e) {}
+    } else {
+      if (isSecretValid(strHeader.trim())) return true;
     }
   }
 
@@ -330,6 +365,7 @@ function validateMcpAuth(req) {
 // MCP Endpoint (/mcp) for Express local server
 app.get('/mcp', (req, res) => {
   if (!validateMcpAuth(req)) {
+    res.setHeader('WWW-Authenticate', 'Bearer realm="iitkgp-timetable-mcp", error="invalid_token"');
     return res.status(401).json({
       success: false,
       error: 'Unauthorized. Valid MCP authentication key or token required.',
@@ -362,6 +398,7 @@ app.post('/mcp', async (req, res) => {
   const { id, method, params } = req.body || {};
 
   if (!validateMcpAuth(req)) {
+    res.setHeader('WWW-Authenticate', 'Bearer realm="iitkgp-timetable-mcp", error="invalid_token"');
     return res.status(401).json({
       jsonrpc: '2.0',
       id: id ?? null,

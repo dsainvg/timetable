@@ -8,6 +8,9 @@ export interface Env {
   AI?: any;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
   APP_PASSWORD?: string;
+  MCP_API_KEY?: string;
+  MCP_AUTH_TOKEN?: string;
+  MCP_PASSWORD?: string;
   SMTP_USER?: string;
   SMTP_PASS?: string;
   DEFAULT_EMAIL?: string;
@@ -1734,6 +1737,23 @@ async function executeMcpTool(name: string, args: any, env: Env): Promise<string
   throw new Error(`Unknown tool name '${name}'.`);
 }
 
+async function timingSafeEqualStr(a: string, b: string): Promise<boolean> {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const encoder = new TextEncoder();
+  const aBuf = encoder.encode(a);
+  const bBuf = encoder.encode(b);
+  if (aBuf.byteLength !== bBuf.byteLength) return false;
+
+  const aHash = new Uint8Array(await crypto.subtle.digest('SHA-256', aBuf));
+  const bHash = new Uint8Array(await crypto.subtle.digest('SHA-256', bBuf));
+
+  let diff = 0;
+  for (let i = 0; i < aHash.length; i++) {
+    diff |= aHash[i] ^ bHash[i];
+  }
+  return diff === 0;
+}
+
 function generateSessionToken(expiresAt: number): string {
   const payload = JSON.stringify({ rollNo: '24cs10097', expiresAt, salt: 'kgp_timetable_2026' });
   return 'tt_token_' + btoa(payload).replace(/=/g, '');
@@ -1766,32 +1786,57 @@ async function validateMcpAuth(request: Request, env: Env): Promise<boolean> {
     url.searchParams.get('key') ||
     url.searchParams.get('api_key') ||
     url.searchParams.get('token') ||
+    url.searchParams.get('access_token') ||
     url.searchParams.get('password') ||
     url.searchParams.get('auth');
 
   const authHeader = request.headers.get('Authorization');
   const apiKeyHeader = request.headers.get('X-API-Key');
 
-  const secret = (env.APP_PASSWORD || '24cs10097').trim();
+  const envSecrets = [
+    env.MCP_API_KEY,
+    env.MCP_AUTH_TOKEN,
+    env.MCP_PASSWORD,
+    env.APP_PASSWORD,
+  ].filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map(s => s.trim());
 
-  if (paramKey) {
-    const key = paramKey.trim();
-    if (key === secret || (await validateSessionToken(`Bearer ${key}`, env.DB))) {
-      return true;
+  const secrets = envSecrets.length > 0 ? envSecrets : ['24cs10097'];
+
+  async function isSecretValid(candidate: string): Promise<boolean> {
+    if (!candidate) return false;
+    const trimmed = candidate.trim();
+    for (const secret of secrets) {
+      if (await timingSafeEqualStr(trimmed, secret)) return true;
     }
+    if (typeof validateSessionToken === 'function') {
+      return await validateSessionToken(`Bearer ${trimmed}`, env.DB);
+    }
+    return false;
   }
 
-  if (apiKeyHeader) {
-    const key = apiKeyHeader.trim();
-    if (key === secret || (await validateSessionToken(`Bearer ${key}`, env.DB))) {
-      return true;
-    }
+  if (paramKey && (await isSecretValid(paramKey))) {
+    return true;
+  }
+
+  if (apiKeyHeader && (await isSecretValid(apiKeyHeader))) {
+    return true;
   }
 
   if (authHeader) {
-    const raw = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (raw === secret || (await validateSessionToken(authHeader, env.DB))) {
-      return true;
+    if (/^Bearer\s+/i.test(authHeader)) {
+      const raw = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (await isSecretValid(raw)) return true;
+    } else if (/^Basic\s+/i.test(authHeader)) {
+      try {
+        const b64 = authHeader.replace(/^Basic\s+/i, '').trim();
+        const decoded = atob(b64);
+        const parts = decoded.split(':');
+        for (const part of parts) {
+          if (part && (await isSecretValid(part))) return true;
+        }
+      } catch (e) {}
+    } else {
+      if (await isSecretValid(authHeader.trim())) return true;
     }
   }
 
@@ -1805,6 +1850,12 @@ async function handleMcpRequest(request: Request, env: Env): Promise<Response> {
 
   const isAuthValid = await validateMcpAuth(request, env);
   if (!isAuthValid) {
+    const authHeaders = {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/json',
+      'WWW-Authenticate': 'Bearer realm="iitkgp-timetable-mcp", error="invalid_token"',
+    };
+
     if (request.method === 'POST') {
       let bodyId: any = null;
       try {
@@ -1813,24 +1864,24 @@ async function handleMcpRequest(request: Request, env: Env): Promise<Response> {
         if (body && body.id !== undefined) bodyId = body.id;
       } catch (e) {}
 
-      return json(
-        {
+      return new Response(
+        JSON.stringify({
           jsonrpc: '2.0',
           id: bodyId,
           error: {
             code: -32001,
             message: 'Unauthorized. Valid MCP authentication key or token required.',
           },
-        },
-        401
+        }),
+        { status: 401, headers: authHeaders }
       );
     }
-    return json(
-      {
+    return new Response(
+      JSON.stringify({
         success: false,
         error: 'Unauthorized. Valid MCP authentication key or token required.',
-      },
-      401
+      }),
+      { status: 401, headers: authHeaders }
     );
   }
 
