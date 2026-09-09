@@ -10,6 +10,8 @@ import {
   Briefcase,
   CheckSquare,
   MailCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { STUDENT_INFO } from './data/timetableData';
 import { TodaySummary } from './components/TodaySummary';
@@ -41,6 +43,7 @@ import {
 type TabId = 'today' | 'timetable' | 'reminders' | 'interns' | 'attendance' | 'emaillogs';
 
 const LOCAL_STORAGE_KEY_TAB = 'iitkgp_timetable_active_tab_v1';
+const LOCAL_STORAGE_KEY_SHOW_HIDDEN = 'iitkgp_timetable_show_hidden_tabs_v1';
 
 export const App: React.FC = () => {
   const isAnonymousTT = window.location.pathname === '/tt' || window.location.pathname === '/tt/';
@@ -60,6 +63,26 @@ export const App: React.FC = () => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY_TAB, tab);
     } catch (e) {}
+  };
+
+  const [showHiddenTabs, setShowHiddenTabsState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOCAL_STORAGE_KEY_SHOW_HIDDEN) === 'true';
+    } catch (e) {}
+    return false;
+  });
+
+  const toggleShowHiddenTabs = () => {
+    setShowHiddenTabsState(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_SHOW_HIDDEN, String(next));
+      } catch (e) {}
+      if (!next && (activeTab === 'interns' || activeTab === 'emaillogs')) {
+        setActiveTab('today');
+      }
+      return next;
+    });
   };
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -209,15 +232,17 @@ export const App: React.FC = () => {
     );
   }
 
-  const TABS: { id: TabId; label: string; mobileLabel: string; icon: React.ElementType; badge?: number }[] = [
+  const ALL_TABS: { id: TabId; label: string; mobileLabel: string; icon: React.ElementType; badge?: number; hidden?: boolean }[] = [
     { id: 'today',      label: "Today's Classes",         mobileLabel: 'Today',      icon: Calendar },
     { id: 'timetable',  label: 'Weekly Timetable',        mobileLabel: 'Schedule',   icon: BookOpen },
     { id: 'reminders',  label: 'Tasks & Reminders',       mobileLabel: 'Tasks',      icon: Bell,
       badge: reminders.filter(r => r.status === 'pending').length },
-    { id: 'interns',    label: 'Internships',             mobileLabel: 'Interns',    icon: Briefcase },
+    { id: 'interns',    label: 'Internships',             mobileLabel: 'Interns',    icon: Briefcase, hidden: true },
     { id: 'attendance', label: 'Attendance & Bunks',      mobileLabel: 'Attendance', icon: CheckSquare },
-    { id: 'emaillogs',  label: 'Email Trigger Logs',      mobileLabel: 'Email Logs', icon: MailCheck },
+    { id: 'emaillogs',  label: 'Email Trigger Logs',      mobileLabel: 'Email Logs', icon: MailCheck, hidden: true },
   ];
+
+  const visibleTabs = ALL_TABS.filter(tab => showHiddenTabs || !tab.hidden);
 
   return (
     <div style={{
@@ -295,6 +320,21 @@ export const App: React.FC = () => {
           {/* Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
+              onClick={toggleShowHiddenTabs}
+              style={{
+                background: showHiddenTabs ? 'rgba(99,102,241,0.15)' : 'rgba(30,41,59,0.7)',
+                border: showHiddenTabs ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(51,65,85,0.6)',
+                borderRadius: 10, padding: '7px 12px', fontSize: 11, fontWeight: 700,
+                color: showHiddenTabs ? '#818cf8' : '#cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                transition: 'all 0.15s',
+              }}
+              title={showHiddenTabs ? "Hide Internships & Email Trigger Logs" : "Unhide Internships & Email Trigger Logs"}
+            >
+              {showHiddenTabs ? <EyeOff size={14} style={{ color: '#818cf8' }} /> : <Eye size={14} style={{ color: '#818cf8' }} />}
+              <span className="desktop-only">{showHiddenTabs ? "Hide Extra Tabs" : "Unhide Extra Tabs"}</span>
+            </button>
+
+            <button
               onClick={() => setIsEmailModalOpen(true)}
               style={{
                 background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(51,65,85,0.6)',
@@ -345,7 +385,7 @@ export const App: React.FC = () => {
           display: 'flex', gap: 4,
           borderTop: '1px solid rgba(30,41,59,0.5)',
         }} className="desktop-nav">
-          {TABS.map(tab => {
+          {visibleTabs.map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
@@ -434,7 +474,7 @@ export const App: React.FC = () => {
         padding: '8px 4px 12px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-around',
       }} className="mobile-nav">
-        {TABS.map(tab => {
+        {visibleTabs.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
           return (
