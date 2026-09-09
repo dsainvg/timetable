@@ -1538,7 +1538,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         title: { type: 'string', description: 'Title of the task or reminder' },
-        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL or INTERNSHIP' },
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL' },
         type: { type: 'string', description: 'Type: assignment, class, exam, project, other' },
         dueDate: { type: 'string', description: 'Due date in YYYY-MM-DD format' },
         dueTime: { type: 'string', description: 'Due time in HH:MM format' },
@@ -1546,31 +1546,6 @@ const MCP_TOOLS = [
         description: { type: 'string', description: 'Additional details or notes' },
       },
       required: ['title'],
-    },
-  },
-  {
-    name: 'get_intern_roles',
-    description: 'Get or search CDC internship recruitment roles, stipends, CTCs, and application statuses.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        search: { type: 'string', description: 'Search term for company name or position' },
-        myStatus: { type: 'string', description: 'Filter status: applied, not_applied, shortlisted, offered, rejected' },
-      },
-    },
-  },
-  {
-    name: 'update_intern_status',
-    description: 'Update application status, interview date, or notes for a CDC internship company.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        companyOrId: { type: 'string', description: 'Company name or role ID' },
-        myStatus: { type: 'string', description: 'Status: applied, not_applied, shortlisted, interview_good, offered, rejected' },
-        interviewDate: { type: 'string', description: 'Interview date/time' },
-        notes: { type: 'string', description: 'Notes' },
-      },
-      required: ['companyOrId'],
     },
   },
   {
@@ -1689,79 +1664,6 @@ async function executeMcpTool(name: string, args: any, env: Env): Promise<string
     }
 
     return `Successfully created reminder '${title}' [${subjectCode}] due on ${dueDate} at ${dueTime} (Priority: ${priority}, ID: ${id}).`;
-  }
-
-  if (name === 'get_intern_roles') {
-    const search = args.search ? String(args.search).toLowerCase() : '';
-    const myStatus = args.myStatus ? String(args.myStatus).toLowerCase() : '';
-
-    let roles = INTERN_COMPANIES_DEFAULT as any[];
-    if (env.DB) {
-      const { results } = await env.DB.prepare('SELECT * FROM intern_roles').all();
-      if (results && results.length > 0) {
-        roles = results.map((row: any) => ({
-          id: row.id,
-          company: row.company,
-          ctc: Number(row.ctc),
-          myStatus: row.my_status,
-          positionNote: row.position_note,
-          interviewDate: row.interview_date,
-          cgpaCutoff: row.cgpa_cutoff,
-          stipend: row.stipend,
-          notes: row.notes,
-        }));
-      }
-    }
-
-    if (search) {
-      roles = roles.filter(r => r.company.toLowerCase().includes(search) || (r.positionNote && r.positionNote.toLowerCase().includes(search)));
-    }
-    if (myStatus) {
-      roles = roles.filter(r => (r.myStatus || '').toLowerCase() === myStatus);
-    }
-
-    if (roles.length === 0) {
-      return `No CDC intern roles found matching criteria.`;
-    }
-
-    const list = roles.slice(0, 25).map(r => {
-      return `• ${r.company} | Role: ${r.positionNote || 'Intern'} | Status: ${r.myStatus || 'not_applied'} | Stipend/CTC: ${r.stipend || r.ctc} | CGPA Cutoff: ${r.cgpaCutoff || 'N/A'}${r.interviewDate ? ` | Interview: ${r.interviewDate}` : ''}`;
-    });
-
-    return `CDC Intern Roles (${roles.length} total, showing top ${list.length}):\n${list.join('\n')}`;
-  }
-
-  if (name === 'update_intern_status') {
-    const key = String(args.companyOrId || '').trim().toLowerCase();
-    if (!key) throw new Error('companyOrId is required for update_intern_status.');
-
-    const myStatus = args.myStatus ? String(args.myStatus) : null;
-    const interviewDate = args.interviewDate ? String(args.interviewDate) : null;
-    const notes = args.notes ? String(args.notes) : null;
-
-    if (!env.DB) {
-      return `Updated status for ${key} (in-memory mode).`;
-    }
-
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM intern_roles WHERE LOWER(id) = ? OR LOWER(company) LIKE ?'
-    ).bind(key, `%${key}%`).all();
-
-    if (!results || results.length === 0) {
-      return `Company or role '${key}' not found in database.`;
-    }
-
-    const role = results[0];
-    await env.DB.prepare(`
-      UPDATE intern_roles SET
-        my_status = COALESCE(?, my_status),
-        interview_date = COALESCE(?, interview_date),
-        notes = COALESCE(?, notes)
-      WHERE id = ?
-    `).bind(myStatus, interviewDate, notes, role.id).run();
-
-    await touchLastEdit(env.DB);
-    return `Successfully updated CDC intern role for ${role.company} (ID: ${role.id}). Status: ${myStatus || role.my_status}, Interview: ${interviewDate || role.interview_date || 'N/A'}.`;
   }
 
   if (name === 'get_attendance_records') {

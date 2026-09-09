@@ -200,7 +200,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         title: { type: 'string', description: 'Title of the task or reminder' },
-        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL or INTERNSHIP' },
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL' },
         type: { type: 'string', description: 'Type: assignment, class, exam, project, other' },
         dueDate: { type: 'string', description: 'Due date in YYYY-MM-DD format' },
         dueTime: { type: 'string', description: 'Due time in HH:MM format' },
@@ -208,31 +208,6 @@ const MCP_TOOLS = [
         description: { type: 'string', description: 'Additional details or notes' },
       },
       required: ['title'],
-    },
-  },
-  {
-    name: 'get_intern_roles',
-    description: 'Get or search CDC internship recruitment roles, stipends, CTCs, and application statuses.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        search: { type: 'string', description: 'Search term for company name or position' },
-        myStatus: { type: 'string', description: 'Filter status: applied, not_applied, shortlisted, offered, rejected' },
-      },
-    },
-  },
-  {
-    name: 'update_intern_status',
-    description: 'Update application status, interview date, or notes for a CDC internship company.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        companyOrId: { type: 'string', description: 'Company name or role ID' },
-        myStatus: { type: 'string', description: 'Status: applied, not_applied, shortlisted, interview_good, offered, rejected' },
-        interviewDate: { type: 'string', description: 'Interview date/time' },
-        notes: { type: 'string', description: 'Notes' },
-      },
-      required: ['companyOrId'],
     },
   },
   {
@@ -294,26 +269,6 @@ async function executeMcpToolLocal(name, args) {
     };
     remindersStore.unshift(newRem);
     return `Successfully created reminder '${title}' [${newRem.subject_code}] due on ${newRem.due_date} ${newRem.due_time}.`;
-  }
-
-  if (name === 'get_intern_roles') {
-    const search = (args.search || '').toLowerCase();
-    let roles = internRolesStore;
-    if (search) {
-      roles = roles.filter(r => r.company.toLowerCase().includes(search) || (r.positionNote && r.positionNote.toLowerCase().includes(search)));
-    }
-    const list = roles.slice(0, 20).map(r => `• ${r.company} | Role: ${r.positionNote || 'Intern'} | Status: ${r.myStatus || 'not_applied'}`);
-    return `CDC Intern Roles (${roles.length}):\n${list.join('\n')}`;
-  }
-
-  if (name === 'update_intern_status') {
-    const key = String(args.companyOrId || '').toLowerCase();
-    const roleIdx = internRolesStore.findIndex(r => r.id.toLowerCase() === key || r.company.toLowerCase().includes(key));
-    if (roleIdx < 0) return `Company or role '${key}' not found.`;
-    if (args.myStatus) internRolesStore[roleIdx].myStatus = args.myStatus;
-    if (args.interviewDate) internRolesStore[roleIdx].interviewDate = args.interviewDate;
-    if (args.notes) internRolesStore[roleIdx].notes = args.notes;
-    return `Successfully updated CDC intern role for ${internRolesStore[roleIdx].company}.`;
   }
 
   if (name === 'get_attendance_records') {
