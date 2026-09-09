@@ -1507,6 +1507,473 @@ async function processHourlyReminders(env: Env, recipient: string) {
   console.log(`[HOURLY CRON] Sent ${sentCount} new reminder emails to ${recipient}.`);
 }
 
+// ─── MCP (MODEL CONTEXT PROTOCOL) SERVER TOOLS & HANDLER ────────────
+const MCP_TOOLS = [
+  {
+    name: 'get_timetable_schedule',
+    description: 'Fetch IIT Kharagpur class schedule for a specific day or course.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        day: { type: 'string', description: 'Day of week (Mon, Tue, Wed, Thur, Fri, or all)' },
+        subjectCode: { type: 'string', description: 'Course code e.g. CS31007, CS61064, AI60213' },
+      },
+    },
+  },
+  {
+    name: 'get_reminders',
+    description: 'Get list of pending or completed tasks, assignments, exams, and CDC deadlines.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', description: 'Filter status: pending, completed, or all' },
+        subjectCode: { type: 'string', description: 'Filter by subject code' },
+      },
+    },
+  },
+  {
+    name: 'add_reminder',
+    description: 'Add a new task, assignment, exam, or reminder to the portal.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the task or reminder' },
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL or INTERNSHIP' },
+        type: { type: 'string', description: 'Type: assignment, class, exam, project, other' },
+        dueDate: { type: 'string', description: 'Due date in YYYY-MM-DD format' },
+        dueTime: { type: 'string', description: 'Due time in HH:MM format' },
+        priority: { type: 'string', description: 'Priority: high, medium, or low' },
+        description: { type: 'string', description: 'Additional details or notes' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'get_intern_roles',
+    description: 'Get or search CDC internship recruitment roles, stipends, CTCs, and application statuses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Search term for company name or position' },
+        myStatus: { type: 'string', description: 'Filter status: applied, not_applied, shortlisted, offered, rejected' },
+      },
+    },
+  },
+  {
+    name: 'update_intern_status',
+    description: 'Update application status, interview date, or notes for a CDC internship company.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companyOrId: { type: 'string', description: 'Company name or role ID' },
+        myStatus: { type: 'string', description: 'Status: applied, not_applied, shortlisted, interview_good, offered, rejected' },
+        interviewDate: { type: 'string', description: 'Interview date/time' },
+        notes: { type: 'string', description: 'Notes' },
+      },
+      required: ['companyOrId'],
+    },
+  },
+  {
+    name: 'get_attendance_records',
+    description: 'Get attendance history and percentage statistics for IIT Kharagpur courses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subjectCode: { type: 'string', description: 'Filter by course code (e.g. CS31007)' },
+      },
+    },
+  },
+  {
+    name: 'log_attendance',
+    description: 'Log attendance status (attended, missed, cancelled) for a course on a date.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007' },
+        status: { type: 'string', description: 'Status: attended, missed, or cancelled' },
+        date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+        note: { type: 'string', description: 'Optional note' },
+      },
+      required: ['subjectCode', 'status'],
+    },
+  },
+];
+
+async function executeMcpTool(name: string, args: any, env: Env): Promise<string> {
+  if (name === 'get_timetable_schedule') {
+    const day = args.day ? String(args.day).trim() : '';
+    const subjectCode = args.subjectCode ? String(args.subjectCode).trim().toUpperCase() : '';
+
+    let slots = SCHEDULE_GRID;
+    if (day && day.toLowerCase() !== 'all') {
+      const targetDay = day.substring(0, 3).toLowerCase();
+      slots = slots.filter(s => s.day.toLowerCase().startsWith(targetDay));
+    }
+    if (subjectCode) {
+      slots = slots.filter(s => s.subjectCode.toUpperCase() === subjectCode);
+    }
+
+    if (slots.length === 0) {
+      return `No classes found for the given criteria (Day: ${day || 'All'}, Subject: ${subjectCode || 'All'}).`;
+    }
+
+    const items = slots.map(s => {
+      const course = COURSES[s.subjectCode];
+      const courseName = course ? course.name : s.subjectCode;
+      const room = s.defaultRoom || 'N/A';
+      return `- [${s.day}] ${s.startTime} - ${s.endTime}: ${courseName} (${s.subjectCode}) in ${room}${s.labSpan ? ` (${s.labSpan}h lab)` : ''}`;
+    });
+
+    return `IIT Kharagpur Timetable Schedule:\n${items.join('\n')}`;
+  }
+
+  if (name === 'get_reminders') {
+    const status = args.status ? String(args.status).trim().toLowerCase() : 'all';
+    const subjectCode = args.subjectCode ? String(args.subjectCode).trim().toUpperCase() : '';
+
+    let items: any[] = [];
+    if (env.DB) {
+      let query = 'SELECT * FROM reminders';
+      const conds: string[] = [];
+      const params: any[] = [];
+      if (status === 'pending' || status === 'completed') {
+        conds.push('status = ?');
+        params.push(status);
+      }
+      if (subjectCode) {
+        conds.push('subject_code = ?');
+        params.push(subjectCode);
+      }
+      if (conds.length > 0) {
+        query += ' WHERE ' + conds.join(' AND ');
+      }
+      query += ' ORDER BY due_date ASC, due_time ASC';
+      const { results } = await env.DB.prepare(query).bind(...params).all();
+      items = results || [];
+    }
+
+    if (items.length === 0) {
+      return `No reminders found matching criteria (Status: ${status}, Subject: ${subjectCode || 'All'}).`;
+    }
+
+    const formatted = items.map(r => {
+      const sub = getSubjectDisplayName(r.subject_code);
+      return `• [${r.status.toUpperCase()}] [${sub}] ${r.title} | Priority: ${r.priority} | Due: ${r.due_date} ${r.due_time} ${r.description ? `(${r.description})` : ''}`;
+    });
+
+    return `Reminders (${items.length}):\n${formatted.join('\n')}`;
+  }
+
+  if (name === 'add_reminder') {
+    const title = String(args.title || '').trim();
+    if (!title) throw new Error('Title is required for add_reminder.');
+
+    const subjectCode = (args.subjectCode || 'GENERAL').toUpperCase();
+    const type = args.type || 'assignment';
+    const dueDate = args.dueDate || getISTDate().dateString;
+    const dueTime = args.dueTime || '23:59';
+    const priority = args.priority || 'medium';
+    const description = args.description || '';
+
+    const titleSlug = title.toLowerCase().replace(/\W+/g, '').slice(0, 20);
+    const randSuffix = Math.random().toString(36).substring(2, 6);
+    const id = `rem-${titleSlug}-${dueDate}-${randSuffix}`;
+
+    if (env.DB) {
+      await env.DB.prepare(`
+        INSERT INTO reminders (id, title, subject_code, type, due_date, due_time, priority, status, send_email, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(id, title, subjectCode, type, dueDate, dueTime, priority, 'pending', 1, description).run();
+
+      await touchLastEdit(env.DB);
+    }
+
+    return `Successfully created reminder '${title}' [${subjectCode}] due on ${dueDate} at ${dueTime} (Priority: ${priority}, ID: ${id}).`;
+  }
+
+  if (name === 'get_intern_roles') {
+    const search = args.search ? String(args.search).toLowerCase() : '';
+    const myStatus = args.myStatus ? String(args.myStatus).toLowerCase() : '';
+
+    let roles = INTERN_COMPANIES_DEFAULT as any[];
+    if (env.DB) {
+      const { results } = await env.DB.prepare('SELECT * FROM intern_roles').all();
+      if (results && results.length > 0) {
+        roles = results.map((row: any) => ({
+          id: row.id,
+          company: row.company,
+          ctc: Number(row.ctc),
+          myStatus: row.my_status,
+          positionNote: row.position_note,
+          interviewDate: row.interview_date,
+          cgpaCutoff: row.cgpa_cutoff,
+          stipend: row.stipend,
+          notes: row.notes,
+        }));
+      }
+    }
+
+    if (search) {
+      roles = roles.filter(r => r.company.toLowerCase().includes(search) || (r.positionNote && r.positionNote.toLowerCase().includes(search)));
+    }
+    if (myStatus) {
+      roles = roles.filter(r => (r.myStatus || '').toLowerCase() === myStatus);
+    }
+
+    if (roles.length === 0) {
+      return `No CDC intern roles found matching criteria.`;
+    }
+
+    const list = roles.slice(0, 25).map(r => {
+      return `• ${r.company} | Role: ${r.positionNote || 'Intern'} | Status: ${r.myStatus || 'not_applied'} | Stipend/CTC: ${r.stipend || r.ctc} | CGPA Cutoff: ${r.cgpaCutoff || 'N/A'}${r.interviewDate ? ` | Interview: ${r.interviewDate}` : ''}`;
+    });
+
+    return `CDC Intern Roles (${roles.length} total, showing top ${list.length}):\n${list.join('\n')}`;
+  }
+
+  if (name === 'update_intern_status') {
+    const key = String(args.companyOrId || '').trim().toLowerCase();
+    if (!key) throw new Error('companyOrId is required for update_intern_status.');
+
+    const myStatus = args.myStatus ? String(args.myStatus) : null;
+    const interviewDate = args.interviewDate ? String(args.interviewDate) : null;
+    const notes = args.notes ? String(args.notes) : null;
+
+    if (!env.DB) {
+      return `Updated status for ${key} (in-memory mode).`;
+    }
+
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM intern_roles WHERE LOWER(id) = ? OR LOWER(company) LIKE ?'
+    ).bind(key, `%${key}%`).all();
+
+    if (!results || results.length === 0) {
+      return `Company or role '${key}' not found in database.`;
+    }
+
+    const role = results[0];
+    await env.DB.prepare(`
+      UPDATE intern_roles SET
+        my_status = COALESCE(?, my_status),
+        interview_date = COALESCE(?, interview_date),
+        notes = COALESCE(?, notes)
+      WHERE id = ?
+    `).bind(myStatus, interviewDate, notes, role.id).run();
+
+    await touchLastEdit(env.DB);
+    return `Successfully updated CDC intern role for ${role.company} (ID: ${role.id}). Status: ${myStatus || role.my_status}, Interview: ${interviewDate || role.interview_date || 'N/A'}.`;
+  }
+
+  if (name === 'get_attendance_records') {
+    const subjectCode = args.subjectCode ? String(args.subjectCode).trim().toUpperCase() : '';
+
+    let logs: any[] = [];
+    if (env.DB) {
+      let query = 'SELECT * FROM attendance_records';
+      const params: any[] = [];
+      if (subjectCode) {
+        query += ' WHERE subject_code = ?';
+        params.push(subjectCode);
+      }
+      query += ' ORDER BY date DESC';
+      const { results } = await env.DB.prepare(query).bind(...params).all();
+      logs = results || [];
+    }
+
+    if (logs.length === 0) {
+      return `No attendance records found${subjectCode ? ` for ${subjectCode}` : ''}.`;
+    }
+
+    const stats: Record<string, { attended: number; missed: number; cancelled: number }> = {};
+    for (const log of logs) {
+      if (!stats[log.subject_code]) {
+        stats[log.subject_code] = { attended: 0, missed: 0, cancelled: 0 };
+      }
+      if (log.status === 'attended') stats[log.subject_code].attended++;
+      else if (log.status === 'missed') stats[log.subject_code].missed++;
+      else if (log.status === 'cancelled') stats[log.subject_code].cancelled++;
+    }
+
+    const summaryStr = Object.entries(stats).map(([sub, st]) => {
+      const total = st.attended + st.missed;
+      const pct = total > 0 ? Math.round((st.attended / total) * 100) : 100;
+      return `- ${getSubjectDisplayName(sub)} (${sub}): ${st.attended} Attended, ${st.missed} Missed, ${st.cancelled} Cancelled (${pct}%)`;
+    }).join('\n');
+
+    const recentLogs = logs.slice(0, 10).map(l => `- [${l.date}] ${getSubjectDisplayName(l.subject_code)}: ${l.status.toUpperCase()} ${l.note ? `(${l.note})` : ''}`).join('\n');
+
+    return `Attendance Summary:\n${summaryStr}\n\nRecent Records (top 10):\n${recentLogs}`;
+  }
+
+  if (name === 'log_attendance') {
+    const subjectCode = String(args.subjectCode || '').trim().toUpperCase();
+    const status = String(args.status || '').trim().toLowerCase();
+    const date = args.date ? String(args.date) : getISTDate().dateString;
+    const note = args.note ? String(args.note) : '';
+
+    if (!subjectCode || !['attended', 'missed', 'cancelled'].includes(status)) {
+      throw new Error('Valid subjectCode and status (attended, missed, cancelled) are required.');
+    }
+
+    const id = 'att-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+    if (env.DB) {
+      await env.DB.prepare(`
+        INSERT INTO attendance_records (id, subject_code, date, status, note)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(id, subjectCode, date, status, note).run();
+
+      await touchLastEdit(env.DB);
+    }
+
+    return `Logged attendance for ${getSubjectDisplayName(subjectCode)} (${subjectCode}) on ${date}: ${status.toUpperCase()}.`;
+  }
+
+  throw new Error(`Unknown tool name '${name}'.`);
+}
+
+async function handleMcpRequest(request: Request, env: Env): Promise<Response> {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  if (env.DB) {
+    await ensureTables(env.DB);
+  }
+
+  // Handle GET /mcp
+  if (request.method === 'GET') {
+    const accept = request.headers.get('Accept') || '';
+    if (accept.includes('text/event-stream')) {
+      const origin = new URL(request.url).origin;
+      const body = `event: endpoint\ndata: ${origin}/mcp\n\n`;
+      return new Response(body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          ...CORS_HEADERS,
+        },
+      });
+    }
+
+    return json({
+      name: 'iitkgp-timetable-mcp',
+      version: '1.0.0',
+      status: 'active',
+      mcpVersion: '2024-11-05',
+      description: 'Serverless MCP Server for IIT Kharagpur Timetable, Tasks, CDC Internships, and Attendance Tracking',
+      capabilities: {
+        tools: {
+          listChanged: false,
+        },
+      },
+    });
+  }
+
+  if (request.method !== 'POST') {
+    return json({ error: 'Method not allowed. Use GET or POST.' }, 405);
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32700, message: 'Parse error: invalid JSON' },
+    }, 400);
+  }
+
+  const { id, method, params } = body || {};
+
+  if (method === 'initialize') {
+    return json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {
+          tools: {},
+        },
+        serverInfo: {
+          name: 'iitkgp-timetable-mcp',
+          version: '1.0.0',
+        },
+      },
+    });
+  }
+
+  if (method === 'notifications/initialized') {
+    if (id !== undefined && id !== null) {
+      return json({ jsonrpc: '2.0', id, result: {} });
+    }
+    return new Response(null, { status: 202, headers: CORS_HEADERS });
+  }
+
+  if (method === 'ping') {
+    return json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      result: {},
+    });
+  }
+
+  if (method === 'tools/list') {
+    return json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      result: {
+        tools: MCP_TOOLS,
+      },
+    });
+  }
+
+  if (method === 'tools/call') {
+    const { name, arguments: args } = params || {};
+    try {
+      const resultText = await executeMcpTool(name, args || {}, env);
+      return json({
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: resultText,
+            },
+          ],
+          isError: false,
+        },
+      });
+    } catch (err: any) {
+      return json({
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: `Error executing tool '${name}': ${err.message || String(err)}`,
+            },
+          ],
+          isError: true,
+        },
+      });
+    }
+  }
+
+  return json({
+    jsonrpc: '2.0',
+    id: id ?? null,
+    error: {
+      code: -32601,
+      message: `Method '${method}' not found. Supported methods: initialize, notifications/initialized, ping, tools/list, tools/call`,
+    },
+  }, 404);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
@@ -1517,6 +1984,11 @@ export default {
     const path = url.pathname;
 
     try {
+      // ─── 0. MCP ENDPOINT (/mcp) ──────────────────────────────
+      if (path === '/mcp') {
+        return handleMcpRequest(request, env);
+      }
+
       // ─── 1. ALL NON-API ROUTES (/tt, /interns, /reminders, /, etc.) ──
       if (!path.startsWith('/api/')) {
         if (env.ASSETS) {

@@ -168,6 +168,270 @@ function validateSessionToken(authHeader) {
   return false;
 }
 
+let attendanceStore = [];
+
+const MCP_TOOLS = [
+  {
+    name: 'get_timetable_schedule',
+    description: 'Fetch IIT Kharagpur class schedule for a specific day or course.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        day: { type: 'string', description: 'Day of week (Mon, Tue, Wed, Thur, Fri, or all)' },
+        subjectCode: { type: 'string', description: 'Course code e.g. CS31007, CS61064, AI60213' },
+      },
+    },
+  },
+  {
+    name: 'get_reminders',
+    description: 'Get list of pending or completed tasks, assignments, exams, and CDC deadlines.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', description: 'Filter status: pending, completed, or all' },
+        subjectCode: { type: 'string', description: 'Filter by subject code' },
+      },
+    },
+  },
+  {
+    name: 'add_reminder',
+    description: 'Add a new task, assignment, exam, or reminder to the portal.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the task or reminder' },
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007 or GENERAL or INTERNSHIP' },
+        type: { type: 'string', description: 'Type: assignment, class, exam, project, other' },
+        dueDate: { type: 'string', description: 'Due date in YYYY-MM-DD format' },
+        dueTime: { type: 'string', description: 'Due time in HH:MM format' },
+        priority: { type: 'string', description: 'Priority: high, medium, or low' },
+        description: { type: 'string', description: 'Additional details or notes' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'get_intern_roles',
+    description: 'Get or search CDC internship recruitment roles, stipends, CTCs, and application statuses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        search: { type: 'string', description: 'Search term for company name or position' },
+        myStatus: { type: 'string', description: 'Filter status: applied, not_applied, shortlisted, offered, rejected' },
+      },
+    },
+  },
+  {
+    name: 'update_intern_status',
+    description: 'Update application status, interview date, or notes for a CDC internship company.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companyOrId: { type: 'string', description: 'Company name or role ID' },
+        myStatus: { type: 'string', description: 'Status: applied, not_applied, shortlisted, interview_good, offered, rejected' },
+        interviewDate: { type: 'string', description: 'Interview date/time' },
+        notes: { type: 'string', description: 'Notes' },
+      },
+      required: ['companyOrId'],
+    },
+  },
+  {
+    name: 'get_attendance_records',
+    description: 'Get attendance history and percentage statistics for IIT Kharagpur courses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subjectCode: { type: 'string', description: 'Filter by course code (e.g. CS31007)' },
+      },
+    },
+  },
+  {
+    name: 'log_attendance',
+    description: 'Log attendance status (attended, missed, cancelled) for a course on a date.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subjectCode: { type: 'string', description: 'Subject code e.g. CS31007' },
+        status: { type: 'string', description: 'Status: attended, missed, or cancelled' },
+        date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+        note: { type: 'string', description: 'Optional note' },
+      },
+      required: ['subjectCode', 'status'],
+    },
+  },
+];
+
+async function executeMcpToolLocal(name, args) {
+  if (name === 'get_timetable_schedule') {
+    return 'IIT Kharagpur Timetable Schedule:\n- [Mon] 08:00 - 08:55: HPPC (CS61064)\n- [Mon] 09:00 - 09:55: Comp Org (CS31007)';
+  }
+
+  if (name === 'get_reminders') {
+    const status = (args.status || 'all').toLowerCase();
+    let filtered = remindersStore;
+    if (status === 'pending' || status === 'completed') {
+      filtered = filtered.filter(r => r.status === status);
+    }
+    const formatted = filtered.map(r => `• [${r.status.toUpperCase()}] [${r.subject_code}] ${r.title} | Due: ${r.due_date} ${r.due_time}`);
+    return `Reminders (${filtered.length}):\n${formatted.join('\n')}`;
+  }
+
+  if (name === 'add_reminder') {
+    const title = (args.title || '').trim();
+    if (!title) throw new Error('Title is required for add_reminder.');
+    const newRem = {
+      id: 'rem-' + Date.now(),
+      title,
+      subject_code: (args.subjectCode || 'GENERAL').toUpperCase(),
+      type: args.type || 'assignment',
+      due_date: args.dueDate || new Date().toISOString().split('T')[0],
+      due_time: args.dueTime || '23:59',
+      priority: args.priority || 'medium',
+      status: 'pending',
+      send_email: true,
+      description: args.description || '',
+      created_at: new Date().toISOString(),
+    };
+    remindersStore.unshift(newRem);
+    return `Successfully created reminder '${title}' [${newRem.subject_code}] due on ${newRem.due_date} ${newRem.due_time}.`;
+  }
+
+  if (name === 'get_intern_roles') {
+    const search = (args.search || '').toLowerCase();
+    let roles = internRolesStore;
+    if (search) {
+      roles = roles.filter(r => r.company.toLowerCase().includes(search) || (r.positionNote && r.positionNote.toLowerCase().includes(search)));
+    }
+    const list = roles.slice(0, 20).map(r => `• ${r.company} | Role: ${r.positionNote || 'Intern'} | Status: ${r.myStatus || 'not_applied'}`);
+    return `CDC Intern Roles (${roles.length}):\n${list.join('\n')}`;
+  }
+
+  if (name === 'update_intern_status') {
+    const key = String(args.companyOrId || '').toLowerCase();
+    const roleIdx = internRolesStore.findIndex(r => r.id.toLowerCase() === key || r.company.toLowerCase().includes(key));
+    if (roleIdx < 0) return `Company or role '${key}' not found.`;
+    if (args.myStatus) internRolesStore[roleIdx].myStatus = args.myStatus;
+    if (args.interviewDate) internRolesStore[roleIdx].interviewDate = args.interviewDate;
+    if (args.notes) internRolesStore[roleIdx].notes = args.notes;
+    return `Successfully updated CDC intern role for ${internRolesStore[roleIdx].company}.`;
+  }
+
+  if (name === 'get_attendance_records') {
+    return `Attendance Records (${attendanceStore.length}):\n` + (attendanceStore.map(a => `- [${a.date}] ${a.subjectCode}: ${a.status}`).join('\n') || 'No records logged.');
+  }
+
+  if (name === 'log_attendance') {
+    const record = {
+      id: 'att-' + Date.now(),
+      subjectCode: (args.subjectCode || 'GENERAL').toUpperCase(),
+      status: (args.status || 'attended').toLowerCase(),
+      date: args.date || new Date().toISOString().split('T')[0],
+      note: args.note || '',
+    };
+    attendanceStore.unshift(record);
+    return `Logged attendance for ${record.subjectCode} on ${record.date}: ${record.status.toUpperCase()}.`;
+  }
+
+  throw new Error(`Unknown tool name '${name}'.`);
+}
+
+// MCP Endpoint (/mcp) for Express local server
+app.get('/mcp', (req, res) => {
+  const accept = req.headers.accept || '';
+  if (accept.includes('text/event-stream')) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    const origin = `${req.protocol}://${req.get('host')}`;
+    return res.send(`event: endpoint\ndata: ${origin}/mcp\n\n`);
+  }
+  return res.json({
+    name: 'iitkgp-timetable-mcp',
+    version: '1.0.0',
+    status: 'active',
+    mcpVersion: '2024-11-05',
+    description: 'Serverless MCP Server for IIT Kharagpur Timetable, Tasks, CDC Internships, and Attendance Tracking',
+    capabilities: {
+      tools: {
+        listChanged: false,
+      },
+    },
+  });
+});
+
+app.post('/mcp', async (req, res) => {
+  const { id, method, params } = req.body || {};
+
+  if (method === 'initialize') {
+    return res.json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {
+          tools: {},
+        },
+        serverInfo: {
+          name: 'iitkgp-timetable-mcp',
+          version: '1.0.0',
+        },
+      },
+    });
+  }
+
+  if (method === 'notifications/initialized') {
+    if (id !== undefined && id !== null) {
+      return res.json({ jsonrpc: '2.0', id, result: {} });
+    }
+    return res.status(202).end();
+  }
+
+  if (method === 'ping') {
+    return res.json({ jsonrpc: '2.0', id: id ?? null, result: {} });
+  }
+
+  if (method === 'tools/list') {
+    return res.json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      result: { tools: MCP_TOOLS },
+    });
+  }
+
+  if (method === 'tools/call') {
+    const { name, arguments: args } = params || {};
+    try {
+      const resultText = await executeMcpToolLocal(name, args || {});
+      return res.json({
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          content: [{ type: 'text', text: resultText }],
+          isError: false,
+        },
+      });
+    } catch (err) {
+      return res.json({
+        jsonrpc: '2.0',
+        id: id ?? null,
+        result: {
+          content: [{ type: 'text', text: `Error executing tool '${name}': ${err.message || String(err)}` }],
+          isError: true,
+        },
+      });
+    }
+  }
+
+  return res.status(404).json({
+    jsonrpc: '2.0',
+    id: id ?? null,
+    error: {
+      code: -32601,
+      message: `Method '${method}' not found. Supported methods: initialize, notifications/initialized, ping, tools/list, tools/call`,
+    },
+  });
+});
+
 // Health endpoint
 app.get('/api/health', (req, res) => {
   res.json({
