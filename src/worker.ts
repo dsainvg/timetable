@@ -1734,9 +1734,104 @@ async function executeMcpTool(name: string, args: any, env: Env): Promise<string
   throw new Error(`Unknown tool name '${name}'.`);
 }
 
+function generateSessionToken(expiresAt: number): string {
+  const payload = JSON.stringify({ rollNo: '24cs10097', expiresAt, salt: 'kgp_timetable_2026' });
+  return 'tt_token_' + btoa(payload).replace(/=/g, '');
+}
+
+async function validateSessionToken(authHeader: string | null, db?: any): Promise<boolean> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.substring(7).trim();
+  if (!token.startsWith('tt_token_')) return false;
+  try {
+    const rawB64 = token.replace('tt_token_', '');
+    const decoded = JSON.parse(atob(rawB64));
+    if (decoded && decoded.expiresAt && decoded.expiresAt > Date.now()) {
+      return true;
+    }
+  } catch (e) {}
+
+  if (db) {
+    try {
+      const res = await db.prepare("SELECT 1 FROM auth_tokens WHERE token = ? AND expires_at > ?").bind(token, Date.now()).get();
+      if (res) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+async function validateMcpAuth(request: Request, env: Env): Promise<boolean> {
+  const url = new URL(request.url);
+  const paramKey =
+    url.searchParams.get('key') ||
+    url.searchParams.get('api_key') ||
+    url.searchParams.get('token') ||
+    url.searchParams.get('password') ||
+    url.searchParams.get('auth');
+
+  const authHeader = request.headers.get('Authorization');
+  const apiKeyHeader = request.headers.get('X-API-Key');
+
+  const secret = (env.APP_PASSWORD || '24cs10097').trim();
+
+  if (paramKey) {
+    const key = paramKey.trim();
+    if (key === secret || (await validateSessionToken(`Bearer ${key}`, env.DB))) {
+      return true;
+    }
+  }
+
+  if (apiKeyHeader) {
+    const key = apiKeyHeader.trim();
+    if (key === secret || (await validateSessionToken(`Bearer ${key}`, env.DB))) {
+      return true;
+    }
+  }
+
+  if (authHeader) {
+    const raw = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (raw === secret || (await validateSessionToken(authHeader, env.DB))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function handleMcpRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  const isAuthValid = await validateMcpAuth(request, env);
+  if (!isAuthValid) {
+    if (request.method === 'POST') {
+      let bodyId: any = null;
+      try {
+        const cloned = request.clone();
+        const body = await cloned.json();
+        if (body && body.id !== undefined) bodyId = body.id;
+      } catch (e) {}
+
+      return json(
+        {
+          jsonrpc: '2.0',
+          id: bodyId,
+          error: {
+            code: -32001,
+            message: 'Unauthorized. Valid MCP authentication key or token required.',
+          },
+        },
+        401
+      );
+    }
+    return json(
+      {
+        success: false,
+        error: 'Unauthorized. Valid MCP authentication key or token required.',
+      },
+      401
+    );
   }
 
   if (env.DB) {
@@ -1908,31 +2003,6 @@ export default {
         return json({ error: 'Asset binding not configured' }, 500);
       }
 
-function generateSessionToken(expiresAt: number): string {
-  const payload = JSON.stringify({ rollNo: '24cs10097', expiresAt, salt: 'kgp_timetable_2026' });
-  return 'tt_token_' + btoa(payload).replace(/=/g, '');
-}
-
-async function validateSessionToken(authHeader: string | null, db?: any): Promise<boolean> {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.substring(7).trim();
-  if (!token.startsWith('tt_token_')) return false;
-  try {
-    const rawB64 = token.replace('tt_token_', '');
-    const decoded = JSON.parse(atob(rawB64));
-    if (decoded && decoded.expiresAt && decoded.expiresAt > Date.now()) {
-      return true;
-    }
-  } catch (e) {}
-
-  if (db) {
-    try {
-      const res = await db.prepare("SELECT 1 FROM auth_tokens WHERE token = ? AND expires_at > ?").bind(token, Date.now()).get();
-      if (res) return true;
-    } catch (e) {}
-  }
-  return false;
-}
 
       // ─── 2. API ROUTES (/api/*) ──────────────────────────────────
       if (env.DB) {

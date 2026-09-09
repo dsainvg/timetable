@@ -290,8 +290,52 @@ async function executeMcpToolLocal(name, args) {
   throw new Error(`Unknown tool name '${name}'.`);
 }
 
+function validateMcpAuth(req) {
+  const paramKey =
+    req.query.key ||
+    req.query.api_key ||
+    req.query.token ||
+    req.query.password ||
+    req.query.auth;
+
+  const authHeader = req.headers.authorization;
+  const apiKeyHeader = req.headers['x-api-key'];
+
+  const secret = (process.env.APP_PASSWORD || '24cs10097').trim();
+
+  if (paramKey) {
+    const key = String(paramKey).trim();
+    if (key === secret || validateSessionToken(`Bearer ${key}`)) {
+      return true;
+    }
+  }
+
+  if (apiKeyHeader) {
+    const key = String(apiKeyHeader).trim();
+    if (key === secret || validateSessionToken(`Bearer ${key}`)) {
+      return true;
+    }
+  }
+
+  if (authHeader) {
+    const raw = String(authHeader).replace(/^Bearer\s+/i, '').trim();
+    if (raw === secret || validateSessionToken(authHeader)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // MCP Endpoint (/mcp) for Express local server
 app.get('/mcp', (req, res) => {
+  if (!validateMcpAuth(req)) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized. Valid MCP authentication key or token required.',
+    });
+  }
+
   const accept = req.headers.accept || '';
   if (accept.includes('text/event-stream')) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -316,6 +360,17 @@ app.get('/mcp', (req, res) => {
 
 app.post('/mcp', async (req, res) => {
   const { id, method, params } = req.body || {};
+
+  if (!validateMcpAuth(req)) {
+    return res.status(401).json({
+      jsonrpc: '2.0',
+      id: id ?? null,
+      error: {
+        code: -32001,
+        message: 'Unauthorized. Valid MCP authentication key or token required.',
+      },
+    });
+  }
 
   if (method === 'initialize') {
     return res.json({
